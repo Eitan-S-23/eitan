@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ANT+BLE 智能码表系统 — 项目介绍</title>
+  <style>
+    /* ── 设计系统变量 ── */
+    :root {
+      --bg:       #f7f8fa;
+      --surface:  #ffffff;
+      --surface2: #f2f4f8;
+      --primary:  #0095f6;
+      --primary-lt: #e8f4fe;
+      --indigo:   #5851db;
+      --indigo-lt: #eeedf9;
+      --green:    #00ba7c;
+      --green-lt: #e5f8f1;
+      --orange:   #f77f00;
+      --orange-lt:#fff3e0;
+      --red:      #e63946;
+      --red-lt:   #fdecea;
+      --purple:   #833ab4;
+      --purple-lt:#f3e8f9;
+      --cyan:     #0077b6;
+      --cyan-lt:  #e3f2fd;
+      --text:     #1c1c1e;
+      --text-2:   #4a4a6a;
+      --muted:    #8e8e9a;
+      --border:   #e8e8ef;
+      --shadow-sm: 0 1px 4px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.04);
+      --shadow:    0 2px 8px rgba(0,0,0,.08), 0 6px 20px rgba(0,0,0,.05);
+      --radius:   14px;
+      --radius-sm: 8px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB",
+                   "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    /* ═══════════ HERO ═══════════ */
+    header {
+      background: linear-gradient(135deg, #ffffff 0%, #f0f4ff 50%, #e8f4fe 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 64px 5% 52px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    header::after {
+      content: "";
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(circle at 15% 60%, rgba(88,81,219,.06) 0%, transparent 50%),
+        radial-gradient(circle at 85% 30%, rgba(0,149,246,.08) 0%, transparent 50%);
+      pointer-events: none;
+    }
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--primary-lt);
+      border: 1px solid rgba(0,149,246,.25);
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 5px 14px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+    }
+    header h1 {
+      font-size: clamp(26px, 4vw, 46px);
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -1px;
+      margin-bottom: 14px;
+    }
+    header h1 em {
+      font-style: normal;
+      background: linear-gradient(90deg, var(--primary), var(--indigo));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    header .subtitle {
+      max-width: 620px;
+      margin: 0 auto 28px;
+      color: var(--text-2);
+      font-size: 16px;
+    }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+    .pill {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 13px;
+      font-size: 13px;
+      color: var(--text-2);
+      font-weight: 500;
+    }
+
+    /* ═══════════ 顶部导航 ═══════════ */
+    nav.toc {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(255,255,255,.90);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 5%;
+      display: flex; gap: 0; overflow-x: auto;
+      scrollbar-width: none;
+    }
+    nav.toc::-webkit-scrollbar { display: none; }
+    nav.toc a {
+      display: block;
+      padding: 14px 15px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      border-bottom: 2px solid transparent;
+      transition: color .2s, border-color .2s;
+    }
+    nav.toc a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+
+    /* ═══════════ 通用布局 ═══════════ */
+    main { max-width: 1100px; margin: 0 auto; padding: 0 5% 80px; }
+    section { padding-top: 60px; }
+
+    .section-label {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-size: 12px; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 3px 10px; border-radius: 20px;
+      margin-bottom: 10px;
+    }
+    .sl-blue   { background: var(--primary-lt); color: var(--primary); }
+    .sl-indigo { background: var(--indigo-lt);  color: var(--indigo); }
+    .sl-green  { background: var(--green-lt);   color: var(--green); }
+    .sl-orange { background: var(--orange-lt);  color: var(--orange); }
+    .sl-red    { background: var(--red-lt);     color: var(--red); }
+    .sl-purple { background: var(--purple-lt);  color: var(--purple); }
+    .sl-cyan   { background: var(--cyan-lt);    color: var(--cyan); }
+
+    .section-title {
+      font-size: 24px; font-weight: 800;
+      color: var(--text); letter-spacing: -.5px;
+      margin-bottom: 6px;
+    }
+    .section-sub { font-size: 14px; color: var(--muted); margin-bottom: 24px; }
+
+    /* ═══════════ 文档链接模块 ═══════════ */
+    /* 配置对象与渲染逻辑在底部 <script> 中 */
+    .doc-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: var(--primary-lt);
+      border: 1px solid rgba(0,149,246,.3);
+      color: var(--primary);
+      font-size: 12px; font-weight: 600;
+      padding: 3px 10px; border-radius: 20px;
+      cursor: pointer;
+      transition: background .18s, transform .12s;
+      user-select: none;
+      text-decoration: none;
+      vertical-align: middle;
+      margin-left: 8px;
+    }
+    .doc-chip:hover { background: var(--primary); color: #fff; transform: translateY(-1px); }
+    .doc-chip::after { content: " ↗"; font-size: 11px; }
+    h3.linkable { cursor: default; }
+    h3.linkable .doc-chip { cursor: pointer; }
+
+    /* ═══════════ 子系统页面链接 ═══════════ */
+    /* 模块化复用：在 DOC_LINKS 中添加条目，
+       然后用 <span class="page-link" onclick="openDoc('key')"> 即可 */
+    .page-link {
+      display: inline-flex; align-items: center; gap: 5px;
+      color: var(--primary);
+      font-size: 13px; font-weight: 600;
+      cursor: pointer;
+      padding: 6px 16px;
+      border-radius: 20px;
+      background: var(--primary-lt);
+      border: 1px solid rgba(0,149,246,.25);
+      transition: background .18s, color .18s, transform .12s, box-shadow .18s;
+      user-select: none;
+    }
+    .page-link::after { content: " →"; font-size: 12px; opacity: .7; }
+    .page-link:hover {
+      background: var(--primary); color: #fff;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,149,246,.25);
+    }
+    .subsys-links {
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+      margin-top: 20px; padding-top: 16px;
+      border-top: 1px dashed var(--border);
+    }
+    .subsys-links-label {
+      font-size: 12px; font-weight: 600; color: var(--muted);
+      letter-spacing: .5px; text-transform: uppercase;
+      margin-right: 4px;
+    }
+
+    /* ═══════════ 卡片 ═══════════ */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow-sm);
+    }
+    .card + .card { margin-top: 14px; }
+    .card h3 {
+      font-size: 15px; font-weight: 700; color: var(--text);
+      margin-bottom: 10px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+    }
+    .card h3 .ic { font-size: 17px; margin-right: 4px; }
+    .card p, .card li { color: var(--text-2); font-size: 14px; }
+    .card ul { padding-left: 20px; }
+    .card li { margin-bottom: 4px; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+    @media(max-width:800px){ .grid-2,.grid-3{ grid-template-columns:1fr; } }
+
+    /* ═══════════ 架构总览图 ═══════════ */
+    .arch-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 20px;
+      box-shadow: var(--shadow-sm);
+    }
+    .arch-row { display: flex; gap: 10px; width: 100%; margin: 0 0 0; }
+    .arch-arrow {
+      display: flex; align-items: center; justify-content: center;
+      padding: 6px 0;
+    }
+    .arch-node {
+      flex: 1; border-radius: 10px; padding: 12px 14px;
+      border: 1.5px solid transparent; text-align: center;
+    }
+    .arch-node .nt { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+    .arch-node .ns { font-size: 11px; color: var(--text-2); }
+    .an-blue   { background: var(--primary-lt); border-color: rgba(0,149,246,.35); }
+    .an-green  { background: var(--green-lt);   border-color: rgba(0,186,124,.35); }
+    .an-orange { background: var(--orange-lt);  border-color: rgba(247,127,0,.35); }
+    .an-indigo { background: var(--indigo-lt);  border-color: rgba(88,81,219,.35); }
+    .an-red    { background: var(--red-lt);     border-color: rgba(230,57,70,.35); }
+    .an-purple { background: var(--purple-lt);  border-color: rgba(131,58,180,.35); }
+    .an-gray   { background: var(--surface2);   border-color: var(--border); }
+    .an-cyan   { background: var(--cyan-lt);    border-color: rgba(0,119,182,.35); }
+
+    /* ═══════════ 流程时间线 ═══════════ */
+    .flow { position: relative; padding-left: 28px; }
+    .flow::before {
+      content: ""; position: absolute; left: 8px; top: 8px; bottom: 8px;
+      width: 2px;
+      background: linear-gradient(to bottom, var(--primary), var(--indigo));
+      border-radius: 2px;
+    }
+    .flow-step { position: relative; margin-bottom: 18px; }
+    .flow-step:last-child { margin-bottom: 0; }
+    .flow-step::before {
+      content: ""; position: absolute;
+      left: -22px; top: 7px;
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--primary); border: 2px solid var(--bg);
+      box-shadow: 0 0 0 2px rgba(0,149,246,.3);
+    }
+    .flow-step .ft { font-weight: 700; font-size: 14px; color: var(--text); }
+    .flow-step .fd { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+    /* ═══════════ 水平流程图 ═══════════ */
+    .hflow {
+      display: flex; align-items: center; gap: 0;
+      overflow-x: auto; padding: 4px 0 12px;
+    }
+    .hf-box {
+      flex-shrink: 0; min-width: 100px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px; text-align: center;
+    }
+    .hf-box .hf-ic { font-size: 22px; display: block; margin-bottom: 4px; }
+    .hf-box .hf-t  { font-size: 13px; font-weight: 700; color: var(--text); }
+    .hf-box .hf-s  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .hf-arr { flex-shrink:0; padding:0 6px; color: var(--primary); font-size:18px; opacity:.7; }
+
+    /* ═══════════ 技术标签 ═══════════ */
+    .tags { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+    .tag {
+      font-size: 12px; font-weight: 500;
+      padding: 3px 10px; border-radius: 6px;
+      font-family: "SF Mono", "Consolas", monospace;
+    }
+    .t-blue   { background: var(--primary-lt); color: var(--primary); }
+    .t-green  { background: var(--green-lt);   color: var(--green); }
+    .t-orange { background: var(--orange-lt);  color: var(--orange); }
+    .t-indigo { background: var(--indigo-lt);  color: var(--indigo); }
+    .t-purple { background: var(--purple-lt);  color: var(--purple); }
+    .t-cyan   { background: var(--cyan-lt);    color: var(--cyan); }
+    .t-gray   { background: var(--surface2);   color: var(--text-2); }
+
+    /* ═══════════ 代码块 ═══════════ */
+    pre {
+      background: #f4f6fa;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px 18px;
+      overflow-x: auto;
+      font-size: 12.5px; line-height: 1.65;
+      color: var(--text-2);
+      font-family: "SF Mono", "Consolas", "Fira Code", monospace;
+      margin-top: 12px;
+    }
+    pre .c  { color: #6aab7a; }
+    pre .k  { color: #0070ba; font-weight: 600; }
+    pre .s  { color: #c96d1e; }
+    pre .n  { color: #7c4dff; }
+    pre .p  { color: #e67700; }
+
+    /* ═══════════ 表格 ═══════════ */
+    table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 8px; }
+    th {
+      background: var(--surface2);
+      color: var(--text-2); font-weight: 700;
+      padding: 10px 14px; text-align: left;
+      border-bottom: 2px solid var(--border);
+    }
+    td {
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-2); vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--bg); }
+
+    /* ═══════════ 提示框 ═══════════ */
+    .callout {
+      display: flex; gap: 12px; align-items: flex-start;
+      border-radius: var(--radius-sm);
+      padding: 14px 16px; margin-top: 14px;
+      font-size: 14px;
+    }
+    .callout-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+    .callout-blue   { background: var(--primary-lt); color: var(--cyan); border-left: 3px solid var(--primary); }
+    .callout-green  { background: var(--green-lt);   color: #00875a; border-left: 3px solid var(--green); }
+    .callout-orange { background: var(--orange-lt);  color: #b85c00; border-left: 3px solid var(--orange); }
+
+    /* ═══════════ 规格列表 ═══════════ */
+    .spec-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; }
+    .spec-item { display: flex; gap: 8px; font-size: 13.5px; align-items: baseline; }
+    .spec-l { color: var(--muted); min-width: 80px; font-size: 12.5px; flex-shrink: 0; }
+    .spec-v { color: var(--text); font-weight: 600; }
+    @media(max-width:540px){ .spec-list{ grid-template-columns:1fr; } }
+
+    /* ═══════════ 高亮徽章 ═══════════ */
+    .badge {
+      display: inline-block; font-size: 11px; font-weight: 700;
+      padding: 2px 8px; border-radius: 5px; letter-spacing: .3px;
+    }
+    .b-green  { background: var(--green-lt);   color: var(--green); }
+    .b-orange { background: var(--orange-lt);  color: var(--orange); }
+    .b-blue   { background: var(--primary-lt); color: var(--primary); }
+
+    /* ═══════════ 分割线 ═══════════ */
+    hr.div { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+
+    /* ═══════════ Footer ═══════════ */
+    footer {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      text-align: center; padding: 28px 5%;
+      color: var(--muted); font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════ HERO ════════════════════ -->
+<header>
+  <div class="hero-eyebrow">&#9881; Embedded · BLE · ANT+ · IoT · OTA</div>
+  <h1>ANT+BLE <em>智能自行车码表</em>系统</h1>
+  <p class="subtitle">
+    基于 AT32F435RGT7（288 MHz）的全功能自行车码表，通过 nRF52832 模块同时支持
+    ANT+ 运动传感器接入与 BLE 手机互联，配备差分加密 OTA 空中升级。
+  </p>
+  <div class="pill-row">
+    <span class="pill">AT32F435 · 288 MHz · Cortex-M4F</span>
+    <span class="pill">nRF52832 · ANT+ + BLE</span>
+    <span class="pill">LVGL 8.x · SDIO · GPS</span>
+    <span class="pill">Flutter 跨平台 App</span>
+    <span class="pill">bsdiff · LZMA · AES-128</span>
+    <span class="pill">AT24C02 · W25Q128</span>
+    <span class="pill">EMQX · CentOS</span>
+  </div>
+</header>
+
+<!-- ════════════════════ 导航 ════════════════════ -->
+<nav class="toc">
+  <a href="#overview">系统总览</a>
+  <a href="#nrf52">nRF52832 模块</a>
+  <a href="#hardware">码表主控</a>
+  <a href="#app">手机 App</a>
+  <a href="#ota">OTA 升级</a>
+  <a href="#server">服务端</a>
+  <a href="#dataflow">数据流</a>
+  <a href="#tech">技术栈</a>
+</nav>
+
+<main>
+
+<!-- 子系统页面链接 — 在 DOC_LINKS 中配置路径即可复用 -->
+  <div class="subsys-links">
+    <span class="subsys-links-label">项目详情</span>
+    <span class="page-link" onclick="openDoc('at32')">码表主机</span>
+    <span class="page-link" onclick="openDoc('nrf52relay')">nRF52832中继器</span>
+    <span class="page-link" onclick="openDoc('flutter')">Flutter上位机</span>
+    <span class="page-link" onclick="openDoc('ota')">OTA升级</span>
+    <span class="page-link" onclick="openDoc('bsdiff_lzma_aes128')">bsdiff差分算法</span>
+  </div>
+
+<!-- ════════════════════ 1. 系统总览 ════════════════════ -->
+<section id="overview">
+  <div class="section-label sl-blue">01 · System Overview</div>
+  <h2 class="section-title">系统总览</h2>
+  <p class="section-sub">六层架构：ANT+ 传感器 → nRF52832 中继 → AT32F435 主控 → BLE → 手机 App → 云端服务器</p>
+  
+  <div class="arch-wrap">
+    <!-- 传感器层 -->
+    <div class="arch-row">
+      <div class="arch-node an-gray"><div class="nt">&#128197; GPS 模块</div><div class="ns">NMEA 串口</div></div>
+      <div class="arch-node an-gray"><div class="nt">&#128170; 功率计</div><div class="ns">ANT+ BPWR</div></div>
+      <div class="arch-node an-gray"><div class="nt">&#10084; 心率带</div><div class="ns">ANT+ HRM</div></div>
+      <div class="arch-node an-gray"><div class="nt">&#128346; 踏频/速度</div><div class="ns">ANT+ CAD/SPD</div></div>
+      <div class="arch-node an-gray"><div class="nt">&#128293; IMU + 磁力计</div><div class="ns">LSM6DSM · LIS3MDL</div></div>
+    </div>
+    <!-- 向下箭头 -->
+    <div class="arch-arrow" style="padding:6px 0">
+      <svg width="24" height="20" viewBox="0 0 24 20"><path d="M12 0v14M5 8l7 8 7-8" stroke="#0095f6" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <!-- nRF52832 -->
+    <div class="arch-row">
+      <div class="arch-node an-indigo" style="flex:1">
+        <div class="nt">&#128268; nRF52832 — ANT+BLE 中继模块（52832_relay）</div>
+        <div class="ns">ANT+ 主机（接收 HRM 等传感器）· BLE 从机（对接手机）· UART 串口与 AT32F435 互通</div>
+      </div>
+    </div>
+    <!-- 双向 UART 箭头 -->
+    <div class="arch-arrow" style="padding:6px 0">
+      <svg width="200" height="20" viewBox="0 0 200 20">
+        <path d="M10 10h180" stroke="#5851db" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <path d="M10 6l-6 4 6 4M190 6l6 4-6 4" stroke="#5851db" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+        <text x="100" y="9" text-anchor="middle" fill="#5851db" font-size="9.5" font-family="sans-serif">UART 115200 bps（P0.25 / P0.26）</text>
+      </svg>
+    </div>
+    <!-- AT32F435 -->
+    <div class="arch-row">
+      <div class="arch-node an-blue" style="flex:3">
+        <div class="nt">&#127950; AT32F435RGT7 码表主控（288 MHz）</div>
+        <div class="ns">LVGL 8.x GUI · DataProc 数据管道 · SD 卡录轨 · GPS 导航 · W25Q128 存储</div>
+      </div>
+      <div class="arch-node an-orange" style="flex:1">
+        <div class="nt">&#128190; AT24C02</div>
+        <div class="ns">OTA 状态 / App 分区标志</div>
+      </div>
+    </div>
+    <!-- BLE 双向 -->
+    <div class="arch-arrow" style="padding:6px 0">
+      <svg width="200" height="20" viewBox="0 0 200 20">
+        <path d="M10 10h180" stroke="#0095f6" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <path d="M10 6l-6 4 6 4M190 6l6 4-6 4" stroke="#0095f6" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+        <text x="100" y="9" text-anchor="middle" fill="#0095f6" font-size="9.5" font-family="sans-serif">Bluetooth 5.0 BLE（自定义 UART 服务 0xFFF0 · 标准 HRS 0x180D）</text>
+      </svg>
+    </div>
+    <!-- App -->
+    <div class="arch-row">
+      <div class="arch-node an-green" style="flex:2">
+        <div class="nt">&#128241; Flutter 手机 App（bluetooth_flutter_Trace）</div>
+        <div class="ns">BLE 连接 · 实时监控 · 功率统计 · OTA 推送 · 骑行仪表盘</div>
+      </div>
+    </div>
+    <!-- MQTT 双向 -->
+    <div class="arch-arrow" style="padding:6px 0">
+      <svg width="200" height="20" viewBox="0 0 200 20">
+        <path d="M10 10h180" stroke="#00ba7c" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <path d="M10 6l-6 4 6 4M190 6l6 4-6 4" stroke="#00ba7c" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+        <text x="100" y="9" text-anchor="middle" fill="#00ba7c" font-size="9.5" font-family="sans-serif">MQTT（EMQX）· HTTPS 固件下载</text>
+      </svg>
+    </div>
+    <!-- 服务器 -->
+    <div class="arch-row">
+      <div class="arch-node an-red" style="flex:1">
+        <div class="nt">&#127968; CentOS 服务器 · EMQX Broker</div>
+        <div class="ns">OTA 通知推送 · 差分包存储 · 设备状态心跳</div>
+      </div>
+      <div class="arch-node an-orange" style="flex:1">
+        <div class="nt">&#128187; 开发 PC</div>
+        <div class="ns">bsdiff 制包 · 固件编译 · 上传服务器</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout callout-blue" style="margin-top:16px">
+    <span class="callout-icon">&#128161;</span>
+    <div>
+      <strong>核心架构要点：</strong>
+      nRF52832 同时运行 ANT+ SoftDevice 与 BLE SoftDevice，通过 <strong>UART 串口（115200 bps）</strong>
+      与 AT32F435 主控互通——ANT+ 传感器数据经 nRF52832 解析后既可通过 BLE 标准心率服务（0x180D）
+      直接推送手机，也可经 UART 转发给 AT32F435 主控显示；
+      OTA 升级时手机 App 下载差分包后经同一 BLE 通道写入，AT32F435 使用 <strong>AT24C02</strong>
+      记录 app1/app2 分区状态并在升级完成后切换启动分区。
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════ 2. nRF52832 ════════════════════ -->
+<section id="nrf52">
+  <div class="section-label sl-indigo">02 · nRF52832 Relay</div>
+  <h2 class="section-title">nRF52832 ANT+BLE 中继模块</h2>
+  <p class="section-sub">52832_relay · Nordic nRF5 SDK · SoftDevice 双栈并行</p>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3><span class="ic">&#9881;</span>模块定位与架构</h3>
+      <p style="margin-bottom:10px">nRF52832 在系统中充当 <strong>三协议桥接节点</strong>：</p>
+      <div class="flow">
+        <div class="flow-step">
+          <div class="ft">ANT+ 主机（Display Receiver）</div>
+          <div class="fd">以从机/显示器角色接收周边运动传感器的 ANT+ 广播数据</div>
+        </div>
+        <div class="flow-step">
+          <div class="ft">BLE 从机（Peripheral）</div>
+          <div class="fd">向手机 App 提供 GATT 服务，广播周期 25 ms，MTU 247 字节</div>
+        </div>
+        <div class="flow-step">
+          <div class="ft">UART 串口透传（115200 bps）</div>
+          <div class="fd">P0.25（RX）/ P0.26（TX），与 AT32F435 双向互通；帧边界由 10 ms 超时判定，单帧最大 244 字节</div>
+        </div>
+      </div>
+      <div class="tags">
+        <span class="tag t-indigo">Nordic nRF5 SDK</span>
+        <span class="tag t-indigo">SoftDevice 双栈</span>
+        <span class="tag t-blue">UART 115200 bps</span>
+        <span class="tag t-gray">Keil / SES</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3><span class="ic">&#128268;</span>ANT+ Profile 支持情况</h3>
+      <table>
+        <thead><tr><th>Profile</th><th>Device Type</th><th>当前状态</th></tr></thead>
+        <tbody>
+          <tr><td>HRM 心率</td><td>0x78 · 4 Hz</td><td><span class="badge b-green">已激活</span></td></tr>
+          <tr><td>BPWR 功率计</td><td>0x0B · 4 Hz</td><td><span class="badge b-orange">库已集成，未启用</span></td></tr>
+          <tr><td>BSC 速度/踏频</td><td>0x79/0x7A/0x7B</td><td><span class="badge b-orange">库已集成，未启用</span></td></tr>
+          <tr><td>SDM 步频</td><td>0x7C</td><td><span class="badge b-orange">库已集成，未启用</span></td></tr>
+        </tbody>
+      </table>
+      <div class="callout callout-orange" style="margin-top:12px">
+        <span class="callout-icon">&#9888;</span>
+        <div>ANT+ RF 频率固定为 2457 MHz（0x39），正式产品需向 thisisant.com 申请官方 ANT+ Network Key。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h3><span class="ic">&#128279;</span>BLE GATT 服务结构</h3>
+    <table>
+      <thead><tr><th>服务</th><th>UUID</th><th>特征值</th><th>方向</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>Heart Rate Service</td><td>0x180D</td><td>0x2A37 Heart Rate Measurement</td><td>Notify</td><td>直接转发 ANT HRM 心率值 + RR 间期</td></tr>
+        <tr><td>Device Info Service</td><td>0x180A</td><td>0x2A29 Manufacturer</td><td>Read</td><td>"NordicSemiconductor"</td></tr>
+        <tr><td rowspan="2">自定义 UART 服务</td><td rowspan="2">0xFFF0</td><td>0xFFF1 TX</td><td>Notify（设备→手机）</td><td>AT32F435 → UART → nRF52832 → BLE 上行，最大 244 字节</td></tr>
+        <tr><td>0xFFF2 RX</td><td>Write（手机→设备）</td><td>BLE → nRF52832 → UART → AT32F435 下行（OTA 数据/指令）</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h3><span class="ic">&#128260;</span>UART 透传帧机制</h3>
+    <div class="grid-2" style="margin-top:8px">
+      <div>
+        <p style="font-size:13.5px;color:var(--text-2);margin-bottom:8px"><strong>上行（AT32→手机）：</strong></p>
+        <div class="flow">
+          <div class="flow-step"><div class="ft">AT32F435 发送串口数据</div><div class="fd">PA9(TX) → nRF52832 P0.25(RX)</div></div>
+          <div class="flow-step"><div class="ft">nRF52832 缓冲（733 字节环形缓冲区）</div><div class="fd">10 ms 超时判定帧边界</div></div>
+          <div class="flow-step"><div class="ft">自动分包发送 BLE Notify</div><div class="fd">每包最大 244 字节，0xFFF1 特征值</div></div>
+        </div>
+      </div>
+      <div>
+        <p style="font-size:13.5px;color:var(--text-2);margin-bottom:8px"><strong>下行（手机→AT32）：</strong></p>
+        <div class="flow">
+          <div class="flow-step"><div class="ft">手机 App Write 0xFFF2 特征值</div><div class="fd">BLE_GATTS_EVT_WRITE 事件触发</div></div>
+          <div class="flow-step"><div class="ft">逐字节写入 UART TX 队列</div><div class="fd">app_uart_put() 512 字节硬件 FIFO</div></div>
+          <div class="flow-step"><div class="ft">nRF52832 P0.26(TX) → AT32F435 PA10(RX)</div><div class="fd">OTA 数据包 / 遥控指令</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════ 3. 码表主控 ════════════════════ -->
+<section id="hardware">
+  <div class="section-label sl-blue">03 · AT32F435 Firmware</div>
+  <h2 class="section-title">码表主控硬件与固件</h2>
+  <p class="section-sub">AT32F435RGT7 · 288 MHz · Keil MDK · LVGL 8.x · X-TRACK v2.7</p>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3><span class="ic">&#9878;</span>硬件配置</h3>
+      <div class="spec-list" style="margin-top:12px">
+        <div class="spec-item"><span class="spec-l">主控 MCU</span><span class="spec-v">AT32F435RGT7 · Cortex-M4F</span></div>
+        <div class="spec-item"><span class="spec-l">主频</span><span class="spec-v">288 MHz（PLL_NS=72, MS=1, FR=2，HICK 源）</span></div>
+        <div class="spec-item"><span class="spec-l">AHB/APB</span><span class="spec-v">AHB 288 MHz · APB1/APB2 各 144 MHz</span></div>
+        <div class="spec-item"><span class="spec-l">显示屏</span><span class="spec-v">2.8" ST7789 · 240×320 · SPI+DMA</span></div>
+        <div class="spec-item"><span class="spec-l">触摸</span><span class="spec-v">XPT2046 电阻触摸（SPI）</span></div>
+        <div class="spec-item"><span class="spec-l">IMU</span><span class="spec-v">LSM6DSM 六轴（I2C）</span></div>
+        <div class="spec-item"><span class="spec-l">磁力计</span><span class="spec-v">LIS3MDL 三轴（I2C）</span></div>
+        <div class="spec-item"><span class="spec-l">SD 卡</span><span class="spec-v">SDIO 接口 · SdFat 文件系统</span></div>
+        <div class="spec-item"><span class="spec-l">外部 Flash</span><span class="spec-v">W25Q128 QSPI（IO0:PC9 IO1:PC10 IO2:PC8 IO3:PB3）</span></div>
+        <div class="spec-item"><span class="spec-l">EEPROM</span><span class="spec-v">AT24C02 · I2C 0x50（SDA:PB7 SCL:PB6）</span></div>
+        <div class="spec-item"><span class="spec-l">GPS</span><span class="spec-v">UART 串口 · TinyGPSPlus 解析</span></div>
+        <div class="spec-item"><span class="spec-l">BLE 模块</span><span class="spec-v">nRF52832 · UART（PA9/PA10）· TinyBTPlus 库</span></div>
+        <div class="spec-item"><span class="spec-l">编码器</span><span class="spec-v">旋转编码器 · PB4/PB5/PA15</span></div>
+        <div class="spec-item"><span class="spec-l">电池检测</span><span class="spec-v">ADC · PA0</span></div>
+        <div class="spec-item"><span class="spec-l">PCB</span><span class="spec-v">四层板 · 2.8" TFT 一体设计</span></div>
+        <div class="spec-item"><span class="spec-l">固件版本</span><span class="spec-v">X-TRACK v2.7</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3><span class="ic">&#128196;</span>固件软件分层架构</h3>
+      <div class="flow" style="margin-top:10px">
+        <div class="flow-step">
+          <div class="ft">HAL 层（Arduino API 兼容）</div>
+          <div class="fd">封装 SDIO、QSPI、I2C（AT24C02/IMU）、UART（GPS/BLE）、SPI（LCD/Touch）等外设，屏蔽硬件差异</div>
+        </div>
+        <div class="flow-step">
+          <div class="ft">DataProc 数据处理管道</div>
+          <div class="fd">DP_GPS · DP_IMU · DP_MAG · DP_Power · DP_Recorder · DP_Storage · DP_Clock 等模块并行运行，负责传感器融合与数据路由</div>
+        </div>
+        <div class="flow-step">
+          <div class="ft">LVGL 8.x GUI 引擎</div>
+          <div class="fd">lv_port 适配层 → ST7789 DMA 双缓冲刷新，30+ FPS</div>
+        </div>
+        <div class="flow-step">
+          <div class="ft">App Pages（MVC 模式）</div>
+          <div class="fd">LiveMap 实时地图 · Dialplate 仪表盘 · Menu · FileBrowser · StatusBar · StartUp · SystemInfos</div>
+        </div>
+        <div class="flow-step">
+          <div class="ft">MillisTaskManager 调度器</div>
+          <div class="fd">轻量级协作式任务调度，无需 RTOS，支持毫秒级周期任务</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LiveMap -->
+  <div class="card" style="margin-top:14px">
+    <h3 class="linkable">
+      <span class="ic">&#128506;</span>LiveMap 实时地图渲染流程
+      <span class="doc-chip" onclick="openDoc('livemap')">渲染流程文档</span>
+    </h3>
+    <div class="hflow" style="margin-top:14px">
+      <div class="hf-box"><span class="hf-ic">&#128205;</span><div class="hf-t">GPS NMEA</div><div class="hf-s">串口 / 仿真器</div></div>
+      <div class="hf-arr">→</div>
+      <div class="hf-box"><span class="hf-ic">&#128260;</span><div class="hf-t">TinyGPSPlus</div><div class="hf-s">坐标解析校验</div></div>
+      <div class="hf-arr">→</div>
+      <div class="hf-box"><span class="hf-ic">&#128202;</span><div class="hf-t">DP_GPS</div><div class="hf-s">轨迹滤波 30 ms</div></div>
+      <div class="hf-arr">→</div>
+      <div class="hf-box"><span class="hf-ic">&#128506;</span><div class="hf-t">LiveMap Page</div><div class="hf-s">瓦片裁切投影</div></div>
+      <div class="hf-arr">→</div>
+      <div class="hf-box"><span class="hf-ic">&#9881;</span><div class="hf-t">LVGL Canvas</div><div class="hf-s">DMA 双缓冲</div></div>
+      <div class="hf-arr">→</div>
+      <div class="hf-box"><span class="hf-ic">&#128258;</span><div class="hf-t">ST7789 LCD</div><div class="hf-s">240 × 320</div></div>
+    </div>
+    <div class="tags">
+      <span class="tag t-blue">SDIO 高速读取</span>
+      <span class="tag t-blue">SdFat 文件系统</span>
+      <span class="tag t-green">LVGL Canvas API</span>
+      <span class="tag t-green">DMA 传输</span>
+      <span class="tag t-orange">TrackFilter 噪声抑制</span>
+      <span class="tag t-gray">GPS 仿真器</span>
+    </div>
+  </div>
+
+  <!-- SDIO & SdFat -->
+  <div class="card" style="margin-top:14px">
+    <h3 class="linkable">
+      <span class="ic">&#128190;</span>SDIO 与 SdFat 文件系统
+      <span class="doc-chip" onclick="openDoc('sdio')">SDIO/SdFat 文档</span>
+    </h3>
+    <p>SD 卡通过 SDIO 接口（PC0~PC5 硬连接）高速访问，SdFat 2.x 文件系统管理地图瓦片、GPX 轨迹文件及配置文件；EDMA 加速数据传输，保障地图渲染与轨迹录制的实时性。</p>
+    <div class="tags">
+      <span class="tag t-blue">SDIO 4-bit</span>
+      <span class="tag t-blue">SdFat 2.x</span>
+      <span class="tag t-green">EDMA 加速</span>
+      <span class="tag t-orange">GPX 轨迹录制</span>
+    </div>
+  </div>
+
+  <!-- USB MSC -->
+  <div class="card" style="margin-top:14px">
+    <h3 class="linkable">
+      <span class="ic">&#128396;</span>USB 大容量存储（USB MSC）
+      <span class="doc-chip" onclick="openDoc('usb')">USB 调试文档</span>
+    </h3>
+    <p>USB MSC 模式下码表被电脑识别为 U 盘，可直接拷贝 GPX 轨迹文件或更新地图瓦片数据，无需额外软件。</p>
+    <div class="tags">
+      <span class="tag t-indigo">USB MSC</span>
+      <span class="tag t-gray">FAT32</span>
+      <span class="tag t-orange">GPX 导出</span>
+    </div>
+  </div>
+
+  <!-- 性能优化 -->
+  <div class="card" style="margin-top:14px">
+    <h3 class="linkable">
+      <span class="ic">&#9889;</span>性能优化
+      <span class="doc-chip" onclick="openDoc('perf')">性能优化文档</span>
+    </h3>
+    <p>针对 288 MHz Cortex-M4F 的渲染优化：LVGL 脏区刷新、DMA 传输流水线、SDIO 预读缓存、MillisTaskManager 零开销调度，实现地图帧率 30+ FPS 同时不影响 GPS 与传感器采集。</p>
+    <div class="tags">
+      <span class="tag t-blue">LVGL 脏区优化</span>
+      <span class="tag t-green">DMA 流水线</span>
+      <span class="tag t-orange">SDIO 预读</span>
+      <span class="tag t-gray">288 MHz · FPU</span>
+    </div>
+  </div>
+
+  <!-- 开发工具 -->
+  <div class="card" style="margin-top:14px">
+    <h3><span class="ic">&#128295;</span>开发环境</h3>
+    <table>
+      <thead><tr><th>工具</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>Keil MDK-ARM</td><td>主工程（uvprojx），ARM Compiler 6，目标 AT32F435RGT7</td></tr>
+        <tr><td>LVGL Simulator</td><td>Windows PC SDL2 后端，完整 UI 可脱离硬件调试</td></tr>
+        <tr><td>Segger RTT</td><td>实时调试输出通道，无需占用 UART</td></tr>
+        <tr><td>cm_backtrace</td><td>HardFault 回溯，配合 addr2line.exe 定位崩溃源码行</td></tr>
+        <tr><td>GPS 仿真器</td><td>HAL_GPS_Simulator.h，回放 NMEA 数据驱动地图测试</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ════════════════════ 4. 手机 App ════════════════════ -->
+<section id="app">
+  <div class="section-label sl-green">04 · Flutter App</div>
+  <h2 class="section-title">Flutter 手机 App</h2>
+  <p class="section-sub">bluetooth_flutter_Trace · 跨平台 BLE 上位机 · Android · iOS · Windows</p>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3><span class="ic">&#128279;</span>BLE 连接管理</h3>
+      <p>通过 <code>flutter_blue_plus 1.32</code>（Android/iOS）与 <code>win_ble 1.1</code>（Windows）构建跨平台蓝牙抽象层，连接 nRF52832 的自定义 UART 服务（0xFFF0）进行数据收发，同时订阅 HRS（0x180D）获取实时心率。</p>
+      <div class="tags">
+        <span class="tag t-blue">flutter_blue_plus 1.32</span>
+        <span class="tag t-blue">win_ble 1.1</span>
+        <span class="tag t-indigo">GetX 状态管理</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3><span class="ic">&#128202;</span>骑行数据可视化</h3>
+      <p>fl_chart 绘制功率曲线、心率区间饼图、踏频走势；power_stats_page 提供日/周功率区间（Z1~Z7）数组累计统计，数据持久化至 SQLite，支持历史回溯。</p>
+      <div class="tags">
+        <span class="tag t-green">fl_chart 1.0</span>
+        <span class="tag t-green">sqflite 2.4</span>
+        <span class="tag t-orange">功率区间 Z1~Z7</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3><span class="ic">&#128640;</span>OTA 升级模块</h3>
+      <p>OtaService 订阅 MQTT 升级通知，通过 dio 从服务器下载差分包（patch_encrypt.bin），经 0xFFF2 特征值 BLE 分包写入码表 W25Q128 Flash，并上报传输进度。</p>
+      <div class="tags">
+        <span class="tag t-cyan">mqtt_client 10.2</span>
+        <span class="tag t-cyan">dio 5.4</span>
+        <span class="tag t-blue">BLE 分包写入</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3><span class="ic">&#9881;</span>远程控制 &amp; 告警</h3>
+      <p>remote_control_page 通过 BLE 向码表下发切页、背光、录轨等指令；AlertService 配合 flutter_local_notifications 在 App 后台运行时推送心率/功率超限告警。</p>
+      <div class="tags">
+        <span class="tag t-orange">BLE Write Char</span>
+        <span class="tag t-orange">本地通知 17.x</span>
+        <span class="tag t-gray">后台任务</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h3><span class="ic">&#128193;</span>主要页面文件</h3>
+    <table>
+      <thead><tr><th>文件</th><th>功能</th><th>规模</th></tr></thead>
+      <tbody>
+        <tr><td>device_detail_page.dart</td><td>设备详情：特征值浏览、连接参数、固件版本</td><td>49 KB</td></tr>
+        <tr><td>device_chart_page.dart</td><td>实时图表：功率 / 心率 / 踏频折线图</td><td>48 KB</td></tr>
+        <tr><td>remote_control_page.dart</td><td>码表远程指令控制</td><td>42 KB</td></tr>
+        <tr><td>power_stats_page.dart</td><td>功率区间统计，日 / 周数据持久化</td><td>26 KB</td></tr>
+        <tr><td>cycling_dashboard_page.dart</td><td>骑行仪表盘：速度 · 距离 · 爬升</td><td>—</td></tr>
+        <tr><td>ota_upgrade_page.dart</td><td>OTA 升级进度展示与触发</td><td>—</td></tr>
+        <tr><td>device_comparison_page.dart</td><td>多设备数据横向对比</td><td>—</td></tr>
+        <tr><td>scan_settings_page.dart</td><td>BLE 扫描过滤配置</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ════════════════════ 5. OTA 升级 ════════════════════ -->
+<section id="ota">
+  <div class="section-label sl-orange">05 · OTA Upgrade</div>
+  <h2 class="section-title">OTA 差分加密升级</h2>
+  <p class="section-sub">bsdiff_lzma_AES128 · AT24C02 记录 app1/app2 状态 · CRC32 三重校验</p>
+
+  <!-- 完整流程 -->
+  <div class="card">
+    <h3><span class="ic">&#128640;</span>完整 OTA 流程</h3>
+    <div class="hflow" style="margin-top:14px;flex-wrap:wrap;gap:8px">
+      <div class="hf-box" style="border-color:rgba(0,119,182,.4)"><span class="hf-ic">&#128187;</span><div class="hf-t">编译新固件</div><div class="hf-s">Keil MDK · .bin</div></div>
+      <div class="hf-arr">→</div>
+      <div class="hf-box" style="border-color:rgba(0,119,182,.4)"><span class="hf-ic">&#9000;</span><div class="hf-t">bsdiff</div><div class="hf-s">差分 old→new</div></div>
+      <div class="hf-arr">→</div>
+      <div class="hf-box" style="border-color:rgba(247,127,0,.4)"><span class="hf-ic">&#128204;</span><div class="hf-t">LZMA 压缩</div><div class="hf-s">4KB 字典</div></div>
+      <div class="hf-arr">→</div>
+      <div class="hf-box" style="border-color:rgba(247,127,0,.4)"><span class="hf-ic">&#128274;</span><div class="hf-t">AES-128 CTR</div><div class="hf-s">随机 Nonce</div></div>
+      <div class="hf-arr">→</div>
+      <div class="hf-box" style="border-color:rgba(230,57,70,.4)"><span class="hf-ic">&#9729;</span><div class="hf-t">上传服务器</div><div class="hf-s">HTTPS PUT</div></div>
+      <div class="hf-arr">→</div>
+      <div class="hf-box" style="border-color:rgba(230,57,70,.4)"><span class="hf-ic">&#128268;</span><div class="hf-t">MQTT Publish</div><div class="hf-s">通知手机 App</div></div>
+      <div class="hf-arr">→</div>
+      <div class="hf-box" style="border-color:rgba(0,186,124,.4)"><span class="hf-ic">&#128241;</span><div class="hf-t">App 下载</div><div class="hf-s">dio HTTP</div></div>
+      <div class="hf-arr">→</div>
+      <div class="hf-box" style="border-color:rgba(0,186,124,.4)"><span class="hf-ic">&#128259;</span><div class="hf-t">BLE 传输</div><div class="hf-s">写入 W25Q128</div></div>
+      <div class="hf-arr">→</div>
+      <div class="hf-box" style="border-color:rgba(0,186,124,.4)"><span class="hf-ic">&#9000;</span><div class="hf-t">bspatch</div><div class="hf-s">解密→解压→打补丁</div></div>
+      <div class="hf-arr">→</div>
+      <div class="hf-box" style="border-color:rgba(88,81,219,.4)"><span class="hf-ic">&#128190;</span><div class="hf-t">AT24C02</div><div class="hf-s">写入新启动分区</div></div>
+      <div class="hf-arr">→</div>
+      <div class="hf-box" style="border-color:rgba(88,81,219,.4)"><span class="hf-ic">&#9989;</span><div class="hf-t">重启切换</div><div class="hf-s">Bootloader 选分区</div></div>
+    </div>
+  </div>
+
+  <div class="grid-2" style="margin-top:14px">
+    <!-- PC 端 bsdiff -->
+    <div class="card">
+      <h3><span class="ic">&#128187;</span>PC 端：bsdiff 制包工具</h3>
+      <p style="margin-bottom:10px;font-size:13.5px">读取旧固件与新固件，输出 patch_encrypt.bin，体积通常为新固件的 10~30%。</p>
+      <div class="flow">
+        <div class="flow-step"><div class="ft">bsdiff 差分算法</div><div class="fd">生成三段差分块（控制块、差分块、附加块）</div></div>
+        <div class="flow-step"><div class="ft">LZMA 压缩</div><div class="fd">lc=2 lp=0 pb=0 fb=64 dict=4KB；多线程编码（LzFindMt），MCU 端单线程解压</div></div>
+        <div class="flow-step"><div class="ft">CRC32 构建补丁头</div><div class="fd">含旧固件 CRC、新固件 CRC、文件大小、LZMA 属性（共 37 字节头部）</div></div>
+        <div class="flow-step"><div class="ft">AES-128-CTR 加密</div><div class="fd">随机 12 字节 Nonce + 4 字节计数器组成 16 字节 IV，流式加密，输出 patch_encrypt.bin</div></div>
+      </div>
+      <div class="tags">
+        <span class="tag t-blue">bsdiff 差分</span>
+        <span class="tag t-orange">LZMA 7-Zip SDK</span>
+        <span class="tag t-orange">AES-128 CTR</span>
+        <span class="tag t-gray">CMake / Windows GUI</span>
+      </div>
+    </div>
+
+    <!-- 码表端 bspatch -->
+    <div class="card">
+      <h3><span class="ic">&#128259;</span>码表端：bspatch 升级执行</h3>
+      <p style="margin-bottom:10px;font-size:13.5px">码表运行于 app1 或 app2 分区时均可响应升级，补丁存储于 W25Q128 QSPI Flash。</p>
+      <div class="flow">
+        <div class="flow-step"><div class="ft">从 W25Q128 读取差分包</div><div class="fd">虚拟文件系统适配层，可替换为 SD 卡等存储</div></div>
+        <div class="flow-step"><div class="ft">AES-128-CTR 流式解密</div><div class="fd">提取首 16 字节 Nonce+Counter，边读边解，最小化 RAM 占用</div></div>
+        <div class="flow-step"><div class="ft">校验补丁头 CRC32</div><div class="fd">验证头部完整性，比对旧固件 CRC 确认版本匹配</div></div>
+        <div class="flow-step"><div class="ft">LZMA 流式解压 + bspatch</div><div class="fd">LzmaDec 单线程解压；基于旧固件逐块重建新固件，EraseAndWriteFlash() 写入目标分区</div></div>
+        <div class="flow-step"><div class="ft">新固件 CRC32 校验</div><div class="fd">校验通过后写 AT24C02 更新启动标志；校验失败则保留旧分区，安全回退</div></div>
+        <div class="flow-step"><div class="ft">重启 → Bootloader 选分区</div><div class="fd">读取 AT24C02 标志，跳转新固件地址运行</div></div>
+      </div>
+      <div class="tags">
+        <span class="tag t-green">流式处理</span>
+        <span class="tag t-green">低内存占用</span>
+        <span class="tag t-indigo">双分区 app1/app2</span>
+        <span class="tag t-indigo">CRC32 三重校验</span>
+        <span class="tag t-gray">平台无关 HAL</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- AT24C02 详解 -->
+  <div class="card" style="margin-top:14px">
+    <h3><span class="ic">&#128190;</span>AT24C02 EEPROM — OTA 状态与分区管理</h3>
+    <div class="grid-2" style="margin-top:12px">
+      <div>
+        <p style="font-size:13.5px;color:var(--text-2);margin-bottom:10px">AT24C02 挂载于 I2C 总线（地址 0x50，SDA=PB7，SCL=PB6），容量 256 字节，掉电不丢失，专用于存储 OTA 过程中的关键元数据：</p>
+        <ul style="font-size:13.5px;color:var(--text-2);padding-left:18px">
+          <li>当前活跃运行分区（app1 / app2）</li>
+          <li>升级状态标志（空闲 / 升级中 / 待切换）</li>
+          <li>新固件版本信息及 CRC</li>
+          <li>错误码与升级计数（便于调试回溯）</li>
+        </ul>
+        <div class="callout callout-green" style="margin-top:12px">
+          <span class="callout-icon">&#128161;</span>
+          <div>Bootloader 上电后首先读取 AT24C02，根据分区标志决定跳转 app1 还是 app2；若新固件 CRC 校验失败则自动回退至旧分区，保障设备在升级异常时仍可正常启动。</div>
+        </div>
+      </div>
+      <div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:6px">AT24C02 典型地址布局（示意）</p>
+        <pre><span class="c">/* AT24C02 OTA 状态区（256 字节）*/</span>
+<span class="k">#define</span> <span class="n">EEPROM_ADDR_BOOT_FLAG</span>   <span class="p">0x00</span>
+  <span class="c">// 0x01 = 运行 app1</span>
+  <span class="c">// 0x02 = 运行 app2</span>
+  <span class="c">// 0xAA = 升级完成，待切换</span>
+
+<span class="k">#define</span> <span class="n">EEPROM_ADDR_OTA_STATUS</span>  <span class="p">0x01</span>
+  <span class="c">// 0x00 = 空闲</span>
+  <span class="c">// 0x01 = 接收差分包中</span>
+  <span class="c">// 0x02 = bspatch 执行中</span>
+
+<span class="k">#define</span> <span class="n">EEPROM_ADDR_NEW_VER</span>     <span class="p">0x10</span>
+<span class="k">#define</span> <span class="n">EEPROM_ADDR_NEW_CRC</span>     <span class="p">0x14</span>
+<span class="k">#define</span> <span class="n">EEPROM_ADDR_ERR_CODE</span>    <span class="p">0x20</span>
+<span class="k">#define</span> <span class="n">EEPROM_ADDR_UPGRADE_CNT</span> <span class="p">0x24</span></pre>
+        <p style="font-size:11.5px;color:var(--muted);margin-top:6px">（具体字段以实际代码为准，此处为示意布局）</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 差分包格式 -->
+  <div class="card" style="margin-top:14px">
+    <h3><span class="ic">&#128203;</span>差分包头部格式（patch_header_t）</h3>
+    <pre><span class="k">typedef struct</span> patch_header {
+    <span class="k">uint32_t</span> ph_hcrc;           <span class="c">// 头部 CRC32（大端）</span>
+    <span class="k">uint32_t</span> ph_psize;          <span class="c">// 压缩后差分包大小（大端）</span>
+    <span class="k">uint32_t</span> ph_osize;          <span class="c">// 旧固件大小（小端）</span>
+    <span class="k">uint32_t</span> ph_nsize;          <span class="c">// 新固件大小（小端）</span>
+    <span class="k">uint32_t</span> ph_ocrc;           <span class="c">// 旧固件 CRC32（大端）— 版本匹配验证</span>
+    <span class="k">uint32_t</span> ph_ncrc;           <span class="c">// 新固件 CRC32（大端）— 升级成功验证</span>
+    <span class="k">uint8_t</span>  ph_lzma_props[<span class="n">5</span>]; <span class="c">// LZMA 属性字节（lc/lp/pb/dict）</span>
+    <span class="k">uint64_t</span> ph_original_size;  <span class="c">// 解压前差分数据原始大小</span>
+} patch_header_t;               <span class="c">// AES 加密前写入，Nonce(16B) + Header + 压缩数据</span></pre>
+  </div>
+</section>
+
+<!-- ════════════════════ 6. 服务端 ════════════════════ -->
+<section id="server">
+  <div class="section-label sl-red">06 · Server</div>
+  <h2 class="section-title">服务端基础设施</h2>
+  <p class="section-sub">CentOS · EMQX MQTT Broker · HTTPS 固件分发</p>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3><span class="ic">&#128268;</span>EMQX MQTT Broker</h3>
+      <p style="margin-bottom:10px">服务器运行 CentOS，部署 <strong>EMQX 5.x</strong>——企业级高性能 MQTT 消息代理，支持百万级并发连接。</p>
+      <table>
+        <thead><tr><th>主题</th><th>方向</th><th>用途</th></tr></thead>
+        <tbody>
+          <tr><td><code>ota/notify/{device_id}</code></td><td>服务器 → App</td><td>推送升级通知 + 下载 URL + 版本号</td></tr>
+          <tr><td><code>ota/progress/{device_id}</code></td><td>App → 服务器</td><td>上报 BLE 传输进度百分比</td></tr>
+          <tr><td><code>device/status/{id}</code></td><td>双向</td><td>设备在线状态心跳</td></tr>
+        </tbody>
+      </table>
+      <div class="tags" style="margin-top:12px">
+        <span class="tag t-cyan">EMQX 5.x</span>
+        <span class="tag t-cyan">MQTT 3.1.1 / 5.0</span>
+        <span class="tag t-gray">QoS 1 可靠传输</span>
+        <span class="tag t-gray">TLS 加密</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3><span class="ic">&#9729;</span>固件分发流程</h3>
+      <div class="flow" style="margin-top:8px">
+        <div class="flow-step"><div class="ft">PC 工具生成 patch_encrypt.bin</div><div class="fd">bsdiff GUI 或 CLI，含版本号与 SHA256</div></div>
+        <div class="flow-step"><div class="ft">HTTPS 上传至 CentOS 服务器</div><div class="fd">固件按版本号归档存储</div></div>
+        <div class="flow-step"><div class="ft">EMQX Publish OTA 通知</div><div class="fd">消息体含目标 device_id、版本号、下载 URL、SHA256</div></div>
+        <div class="flow-step"><div class="ft">App 订阅 → 下载 → 校验</div><div class="fd">mqtt_client 收到 → dio 下载 → SHA256 校验 → 存本地</div></div>
+        <div class="flow-step"><div class="ft">BLE 推送至码表 W25Q128</div><div class="fd">分包写入，进度回报 MQTT，完成后触发 bspatch</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════ 7. 数据流 ════════════════════ -->
+<section id="dataflow">
+  <div class="section-label sl-cyan">07 · Data Flow</div>
+  <h2 class="section-title">关键数据流详解</h2>
+  <p class="section-sub">实时骑行链路 · OTA 升级 · 功率统计</p>
+
+  <div class="card">
+    <h3><span class="ic">&#128197;</span>实时骑行数据全链路</h3>
+    <div class="flow" style="margin-top:12px">
+      <div class="flow-step"><div class="ft">ANT+ 传感器广播（~250 ms / 次）</div><div class="fd">nRF52832 ANT+ 主机接收 HRM 等 Profile 数据</div></div>
+      <div class="flow-step"><div class="ft">nRF52832 双路输出</div><div class="fd">① 心率值经 BLE HRS（0x180D）直接 Notify 手机；② 全部数据经 UART（115200 bps）转发给 AT32F435</div></div>
+      <div class="flow-step"><div class="ft">AT32F435 DataProc 融合处理</div><div class="fd">DP_Power 计算均值/NP；DP_GPS 更新位置；DP_IMU 辅助航向；DP_Recorder 追加 GPX 轨迹点至 SD 卡</div></div>
+      <div class="flow-step"><div class="ft">LVGL UI 刷新</div><div class="fd">仪表盘数字 500 ms 刷新；LiveMap 30 ms 渲染位置标记</div></div>
+      <div class="flow-step"><div class="ft">AT32F435 → UART → nRF52832 → BLE → 手机 App</div><div class="fd">打包后骑行数据（功率、速度、GPS、踏频）经 0xFFF1 Notify 推送，约 1 Hz</div></div>
+      <div class="flow-step"><div class="ft">App 持久化 &amp; 可视化</div><div class="fd">MonitorController 写 SQLite；fl_chart 实时更新；功率区间数组按日累计</div></div>
+    </div>
+  </div>
+
+  <div class="grid-2" style="margin-top:14px">
+    <div class="card">
+      <h3><span class="ic">&#9889;</span>功率统计持久化</h3>
+      <p>App 维护 Z1~Z7 七个功率区间的时间数组，每秒在对应区间累加；骑行结束后批量写入 SQLite power_stats 表，支持日/周维度图表渲染。</p>
+      <div class="tags">
+        <span class="tag t-blue">区间数组 Z1~Z7</span>
+        <span class="tag t-blue">sqflite 批量写入</span>
+        <span class="tag t-indigo">SharedPreferences 缓存</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3><span class="ic">&#128190;</span>SD 卡 GPX 轨迹录制</h3>
+      <p>DP_Recorder 以 GPX 格式将时间戳、经纬度、海拔、心率、功率写入 SD 卡；USB MSC 模式下码表被识别为 U 盘，可直接导出 .gpx 至 Strava 等平台。</p>
+      <div class="tags">
+        <span class="tag t-green">GPX 格式</span>
+        <span class="tag t-green">SDIO 高速写入</span>
+        <span class="tag t-orange">USB MSC 导出</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════ 8. 技术栈 ════════════════════ -->
+<section id="tech">
+  <div class="section-label sl-purple">08 · Tech Stack</div>
+  <h2 class="section-title">完整技术栈</h2>
+  <p class="section-sub">跨越嵌入式、移动端与服务端的全栈技术选型</p>
+
+  <div class="grid-3">
+    <div class="card">
+      <h3><span class="ic">&#128259;</span>嵌入式固件</h3>
+      <table>
+        <thead><tr><th>类别</th><th>技术</th></tr></thead>
+        <tbody>
+          <tr><td>主控 MCU</td><td>AT32F435RGT7 · 288 MHz · Cortex-M4F</td></tr>
+          <tr><td>无线模块</td><td>nRF52832 · ANT+ + BLE 5.0</td></tr>
+          <tr><td>IDE / 编译器</td><td>Keil MDK · ARM Compiler 6</td></tr>
+          <tr><td>GUI 框架</td><td>LVGL 8.x</td></tr>
+          <tr><td>调度</td><td>MillisTaskManager（无 RTOS）</td></tr>
+          <tr><td>文件系统</td><td>SdFat 2.x（SDIO）</td></tr>
+          <tr><td>外部 Flash</td><td>W25Q128 QSPI</td></tr>
+          <tr><td>OTA EEPROM</td><td>AT24C02 I2C</td></tr>
+          <tr><td>GPS 解析</td><td>TinyGPSPlus</td></tr>
+          <tr><td>调试</td><td>Segger RTT · cm_backtrace</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3><span class="ic">&#128241;</span>移动端 App</h3>
+      <table>
+        <thead><tr><th>类别</th><th>技术</th></tr></thead>
+        <tbody>
+          <tr><td>框架</td><td>Flutter 3.x · Dart</td></tr>
+          <tr><td>状态管理</td><td>GetX 4.6</td></tr>
+          <tr><td>蓝牙</td><td>flutter_blue_plus · win_ble</td></tr>
+          <tr><td>图表</td><td>fl_chart 1.0</td></tr>
+          <tr><td>数据库</td><td>sqflite 2.4（SQLite）</td></tr>
+          <tr><td>MQTT</td><td>mqtt_client 10.2</td></tr>
+          <tr><td>HTTP</td><td>dio 5.4</td></tr>
+          <tr><td>通知</td><td>flutter_local_notifications 17</td></tr>
+          <tr><td>平台</td><td>Android · iOS · Windows · Linux · macOS</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3><span class="ic">&#127968;</span>服务端 &amp; 工具链</h3>
+      <table>
+        <thead><tr><th>类别</th><th>技术</th></tr></thead>
+        <tbody>
+          <tr><td>操作系统</td><td>CentOS Linux</td></tr>
+          <tr><td>消息代理</td><td>EMQX 5.x（MQTT Broker）</td></tr>
+          <tr><td>差分算法</td><td>bsdiff（二进制差分）</td></tr>
+          <tr><td>压缩</td><td>LZMA（7-Zip SDK · 4KB 字典）</td></tr>
+          <tr><td>加密</td><td>AES-128 CTR 模式</td></tr>
+          <tr><td>校验</td><td>CRC32（头部 + 旧 + 新固件）</td></tr>
+          <tr><td>工具构建</td><td>CMake · GCC / Windows GUI</td></tr>
+          <tr><td>固件传输</td><td>HTTPS 上传 · BLE 0xFFF2 分包</td></tr>
+          <tr><td>PCB</td><td>四层板 · 2.8" TFT 一体</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <hr class="div" />
+
+  <div class="card">
+    <h3><span class="ic">&#127942;</span>项目亮点</h3>
+    <div class="grid-2" style="margin-top:12px">
+      <div class="flow">
+        <div class="flow-step"><div class="ft">nRF52832 三协议桥接</div><div class="fd">单芯片同时运行 ANT+ SoftDevice + BLE SoftDevice + UART，将运动传感器数据无缝桥接至手机，手机无需具备 ANT+ 硬件</div></div>
+        <div class="flow-step"><div class="ft">差分 OTA 大幅节省流量</div><div class="fd">bsdiff + LZMA 使传输包仅为全量固件的 10~30%；AES-128 加密保障固件不被篡改；AT24C02 存储分区标志确保断电安全</div></div>
+        <div class="flow-step"><div class="ft">288 MHz 高性能调度</div><div class="fd">无 RTOS 的 MillisTaskManager 协作调度，LZMA 解压约 2~3 MB/s，整体 OTA 打补丁耗时数秒内完成</div></div>
+      </div>
+      <div class="flow">
+        <div class="flow-step"><div class="ft">全栈自主研发</div><div class="fd">PCB 硬件设计 → 嵌入式固件 → 无线模块固件 → Flutter App → 云端 MQTT 推送，完整闭环</div></div>
+        <div class="flow-step"><div class="ft">跨平台 Flutter App</div><div class="fd">单一代码库覆盖 Android / iOS / Windows，集 BLE 连接、实时图表、OTA 推送、功率统计于一体</div></div>
+        <div class="flow-step"><div class="ft">PC 仿真器加速开发</div><div class="fd">LVGL Simulator（SDL2）配合 GPS 数据回放，无需硬件即可完整调试 UI 与地图渲染</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <p>ANT+BLE 智能码表系统 · AT32F435RGT7 · nRF52832 · Flutter · EMQX · bsdiff/LZMA/AES-128 · X-TRACK v2.7</p>
+  <p style="margin-top:6px;font-size:12px;color:#bbb">本文档根据项目源码分析生成，仅供技术参考。</p>
+</footer>
+
+<!-- ════════════════════ 文档链接模块 ════════════════════ -->
+<script>
+  /**
+   * DOC_LINKS — 模块化文档路径配置
+   * 每个 key 对应 AT32F435RGT7_SDIO 目录下的一个文档文件。
+   * 如需新增文档链接，只需在此对象中添加新条目，
+   * 然后在 HTML 中使用 <span class="doc-chip" onclick="openDoc('key')"> 即可。
+   */
+  const DOC_LINKS = {
+    /* ── AT32F435 子文档 ── */
+    livemap: {
+      title: 'LiveMap 渲染流程技术文档',
+      path:  'AT32F435RGT7_SDIO/docs/livemap.html'
+    },
+    sdio: {
+      title: 'SDIO 和 SdFat 工作原理技术文档',
+      path:  'AT32F435RGT7_SDIO/docs/sdio.html'
+    },
+    usb: {
+      title: 'USB MSC 调试指南',
+      path:  'AT32F435RGT7_SDIO/docs/usb_msc.html'
+    },
+    perf: {
+      title: '性能优化总结',
+      path:  'AT32F435RGT7_SDIO/性能优化总结.md'
+    },
+    /* ── 子系统页面链接 ── */
+    at32: {
+      title: '码表主机 · AT32F435RGT7',
+      path:  'XTRACK.html'
+    },
+    nrf52relay: {
+      title: 'nRF52832 ANT+BLE 中继器',
+      path:  'nRF52832_relay_doc.html'
+    },
+    flutter: {
+      title: 'Flutter 上位机 App',
+      path:  'BLE_Monitor_Project.html'
+    },
+    bsdiff_lzma_aes128: {
+      title: 'bsdiff + LZMA + AES-128 差分算法',
+      path:  'bsdiff_lzma_aes128.html'
+    },
+    ota: {
+      title: 'ota 升级流程与实现细节',
+      path:  'OTA.html'
+    }
+  };
+
+  /**
+   * openDoc(key)
+   * 根据 DOC_LINKS 中的路径在新标签页打开对应文档。
+   */
+  function openDoc(key) {
+    const doc = DOC_LINKS[key];
+    if (!doc) { console.warn('未找到文档 key:', key); return; }
+    window.open(doc.path, '_blank');
+  }
+</script>
+</body>
+</html>

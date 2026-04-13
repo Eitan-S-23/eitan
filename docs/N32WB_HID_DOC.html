@@ -1,0 +1,1416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>N32WB_HID · 技术文档</title>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --border: #e8e8e8;
+      --text: #1a1a1a;
+      --muted: #888;
+      --accent: #2d6be4;
+      --accent-light: #eef3fd;
+      --tag-bg: #f0f0f0;
+      --sidebar-w: 260px;
+      --header-h: 52px;
+      --radius: 6px;
+      --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Courier New', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    /* ── Header ── */
+    #header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 16px;
+      z-index: 100;
+    }
+
+    #menu-toggle {
+      width: 36px; height: 36px;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 4px;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    #menu-toggle:hover { background: var(--tag-bg); }
+    #menu-toggle span {
+      display: block;
+      width: 16px; height: 1.5px;
+      background: var(--text);
+      border-radius: 2px;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    body.menu-open #menu-toggle span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+    body.menu-open #menu-toggle span:nth-child(2) { opacity: 0; }
+    body.menu-open #menu-toggle span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+
+    #brand {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -.2px;
+      color: var(--text);
+    }
+    #brand sup {
+      font-size: 10px;
+      font-weight: 400;
+      color: var(--muted);
+      margin-left: 6px;
+    }
+
+    .header-meta {
+      margin-left: auto;
+      display: flex; gap: 8px;
+    }
+    .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: var(--accent-light);
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      position: fixed;
+      top: var(--header-h); left: 0; bottom: 0;
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      transform: translateX(0);
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 90;
+      padding: 16px 0 32px;
+    }
+    body:not(.menu-open) #sidebar { transform: translateX(calc(-1 * var(--sidebar-w))); }
+
+    .sidebar-section { margin-bottom: 8px; }
+    .sidebar-section-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 8px 20px 4px;
+    }
+    .sidebar-link {
+      display: block;
+      padding: 6px 20px;
+      color: #444;
+      text-decoration: none;
+      font-size: 13px;
+      border-left: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .sidebar-link:hover {
+      color: var(--accent);
+      background: var(--accent-light);
+      border-left-color: var(--accent);
+    }
+    .sidebar-link.active {
+      color: var(--accent);
+      background: var(--accent-light);
+      border-left-color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* ── Main ── */
+    #main {
+      margin-top: var(--header-h);
+      margin-left: var(--sidebar-w);
+      transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      min-height: calc(100vh - var(--header-h));
+    }
+    body:not(.menu-open) #main { margin-left: 0; }
+
+    .content {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 48px 32px 80px;
+    }
+
+    /* ── Sections ── */
+    section { margin-bottom: 64px; }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -.5px;
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+
+    h2 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 24px 0 10px;
+    }
+
+    p { color: #444; margin-bottom: 12px; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Hero ── */
+    .hero-desc {
+      font-size: 16px;
+      color: #555;
+      max-width: 600px;
+      line-height: 1.8;
+      margin-bottom: 28px;
+    }
+    .hero-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px; }
+    .tag {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: var(--tag-bg);
+      color: #555;
+    }
+
+    /* ── Cards ── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+    .card-icon {
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .card-desc {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th {
+      text-align: left;
+      padding: 8px 12px;
+      background: #f5f5f5;
+      border: 1px solid var(--border);
+      font-weight: 600;
+      color: #555;
+    }
+    td {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      color: #444;
+      vertical-align: top;
+    }
+    tr:hover td { background: #fafafa; }
+    .td-code {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: #f8f8f8;
+      color: #c0392b;
+    }
+
+    /* ── Code ── */
+    pre {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      border-radius: var(--radius);
+      padding: 20px;
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.7;
+      margin: 16px 0;
+      position: relative;
+    }
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 28px;
+      height: 28px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s, background 0.15s;
+      color: #cdd6f4;
+      padding: 0;
+    }
+    pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { background: rgba(255,255,255,0.18); }
+    .copy-btn.copied { color: #a6e3a1; border-color: #a6e3a1; }
+    code {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      background: #f3f3f3;
+      border-radius: 3px;
+      padding: 1px 5px;
+      color: #c0392b;
+    }
+    pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+
+    /* ── Arch diagram ── */
+    .arch {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin: 16px 0;
+    }
+    .arch-layer {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .arch-layer:last-child { border-bottom: none; }
+    .arch-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      min-width: 110px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .arch-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .arch-chip {
+      font-size: 11.5px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: var(--tag-bg);
+      color: #444;
+    }
+    .arch-layer.l1 { background: #eef3fd; }
+    .arch-layer.l1 .arch-chip { background: #d0e1fd; color: #1a4db7; }
+    .arch-layer.l2 { background: #f0faf5; }
+    .arch-layer.l2 .arch-chip { background: #c2edd8; color: #1a6648; }
+    .arch-layer.l3 { background: #fdf8ee; }
+    .arch-layer.l3 .arch-chip { background: #fae6b0; color: #7a5200; }
+    .arch-layer.l4 { background: #fdf3f0; }
+    .arch-layer.l4 .arch-chip { background: #f9cfc8; color: #8b1c0e; }
+    .arch-layer.l5 { background: #f8f0fe; }
+    .arch-layer.l5 .arch-chip { background: #e1c7fc; color: #5b1fa3; }
+
+    /* ── Stats ── */
+    .stats { display: flex; gap: 16px; flex-wrap: wrap; margin: 20px 0; }
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 24px;
+      min-width: 120px;
+      text-align: center;
+    }
+    .stat-num {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -.5px;
+    }
+    .stat-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Flow ── */
+    .flow {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin: 16px 0;
+    }
+    .flow-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px dashed #eee;
+    }
+    .flow-step:last-child { border-bottom: none; }
+    .flow-num {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .flow-text { font-size: 13px; color: #444; }
+    .flow-text strong { color: var(--text); }
+
+    /* ── Notice ── */
+    .notice {
+      border-left: 3px solid var(--accent);
+      background: var(--accent-light);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 16px;
+      margin: 16px 0;
+      font-size: 13px;
+      color: #335;
+    }
+    .notice.warn {
+      border-left-color: #e67e22;
+      background: #fef9f0;
+      color: #7a4500;
+    }
+    .notice.ok {
+      border-left-color: #27ae60;
+      background: #f0faf5;
+      color: #1a5c38;
+    }
+    .notice.err {
+      border-left-color: #e74c3c;
+      background: #fef0f0;
+      color: #7a1a1a;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 32px;
+      font-size: 12px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── Pipeline ── */
+    .pipeline { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin: 16px 0; }
+    .pipeline-step { display: flex; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #eee; }
+    .pipeline-step:last-child { border-bottom: none; }
+    .pipeline-step:nth-child(odd) { background: var(--surface); }
+    .pipeline-step:nth-child(even) { background: #f8f8f8; }
+    .pipeline-num {
+      width: 28px; height: 28px; border-radius: 50%; background: var(--accent);
+      color: #fff; font-size: 13px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 2px;
+    }
+    .pipeline-content { flex: 1; min-width: 0; }
+    .pipeline-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+    .pipeline-desc { font-size: 13px; color: #555; margin-bottom: 6px; }
+
+    /* ── Sidebar sublink ── */
+    .sidebar-sublink {
+      display: block; padding: 3px 20px 3px 30px;
+      color: #888; text-decoration: none; font-size: 12px;
+      border-left: 2px solid transparent; transition: all 0.15s;
+    }
+    .sidebar-sublink:hover { color: var(--accent); background: var(--accent-light); border-left-color: var(--accent); }
+    .sidebar-sublink.active { color: var(--accent); background: var(--accent-light); border-left-color: var(--accent); }
+
+    /* ── Collapsible sidebar item ── */
+    .sidebar-expand-row { display: flex; align-items: stretch; }
+    .sidebar-expand-row .sidebar-link { flex: 1; padding-right: 2px; }
+    .sidebar-chevron {
+      width: 28px; flex-shrink: 0; margin-right: 6px;
+      background: none; border: none; cursor: pointer;
+      color: var(--muted); font-size: 18px; font-weight: 300;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 3px; padding: 0; line-height: 1;
+      transition: transform 0.22s ease, color 0.15s, background 0.15s;
+    }
+    .sidebar-chevron:hover { color: var(--accent); background: var(--accent-light); }
+    .sidebar-expandable.open .sidebar-chevron { transform: rotate(90deg); }
+    .sidebar-submenu {
+      overflow: hidden; max-height: 0;
+      transition: max-height 0.28s ease-in-out;
+    }
+    .sidebar-expandable.open .sidebar-submenu { max-height: 400px; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 700px) {
+      .content { padding: 28px 18px 60px; }
+      h1 { font-size: 24px; }
+      .stats { gap: 10px; }
+      .card-grid { grid-template-columns: 1fr 1fr; }
+      .arch-layer { flex-direction: column; align-items: flex-start; gap: 8px; }
+    }
+  </style>
+</head>
+<body class="menu-open">
+
+<!-- Header -->
+<header id="header">
+  <button id="menu-toggle" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div id="brand">N32WB_HID 触摸屏键盘设备 <sup>Nations N32WB03x · BLE HID v1.0.0</sup></div>
+  <div class="header-meta">
+    <span class="badge">v1.0.0</span>
+    <span class="badge">BLE HID</span>
+  </div>
+</header>
+
+<!-- Sidebar -->
+<nav id="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">概览</div>
+    <a class="sidebar-link active" href="#overview">项目概览</a>
+    <a class="sidebar-link" href="#stats">项目统计</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">系统架构</div>
+    <a class="sidebar-link" href="#architecture">分层设计</a>
+    <a class="sidebar-link" href="#startup">启动流程</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">触摸屏</div>
+    <a class="sidebar-link" href="#touchscreen">多点触控协议</a>
+    <a class="sidebar-link" href="#gesture-high">高级手势 API</a>
+    <a class="sidebar-link" href="#gesture-low">底层触摸 API</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">键盘</div>
+    <a class="sidebar-link" href="#keyboard">HID 键盘</a>
+    <a class="sidebar-link" href="#keycodes">键码定义</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">蓝牙 BLE</div>
+    <a class="sidebar-link" href="#ble-profiles">BLE 配置文件</a>
+    <a class="sidebar-link" href="#ble-conn">连接与安全</a>
+    <a class="sidebar-link" href="#ble-adv">广播配置</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">硬件</div>
+    <a class="sidebar-link" href="#gpio">GPIO 配置</a>
+    <a class="sidebar-link" href="#hid-report">HID 报告格式</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">参考</div>
+    <a class="sidebar-link" href="#files">文件结构</a>
+    <a class="sidebar-link" href="#config">编译配置</a>
+  </div>
+</nav>
+
+<!-- Main Content -->
+<main id="main">
+<div class="content">
+
+  <!-- ── Overview ── -->
+  <section id="overview">
+    <div class="section-label">Project Overview</div>
+    <h1>N32WB_HID 蓝牙触摸屏与键盘设备</h1>
+    <p class="hero-desc">
+      N32WB_HID 是基于 Nations 半导体 N32WB03x 微控制器的 BLE HID（蓝牙低功耗人机接口设备）固件项目，
+      实现了完整的多点触控触摸屏模拟与 HID 键盘功能，并提供高层手势 API（缩放、旋转、截图、边缘滑动等），
+      可作为无线触摸板或触控笔设备接入 Windows / Android / iOS 主机。
+    </p>
+    <div class="hero-tags">
+      <span class="tag">Nations N32WB03x</span>
+      <span class="tag">BLE 5.x HOGPD</span>
+      <span class="tag">多点触控 3 指</span>
+      <span class="tag">HID 键盘</span>
+      <span class="tag">手势识别 API</span>
+      <span class="tag">Keil MDK-ARM</span>
+      <span class="tag">GATT HID Profile</span>
+      <span class="tag">Windows 兼容</span>
+    </div>
+    <div class="notice">
+      芯片: Nations N32WB03x &nbsp;·&nbsp; 设备名: hid_mouse &nbsp;·&nbsp;
+      IDE: Keil MDK-ARM &nbsp;·&nbsp; 固件版本: v1.0.0 &nbsp;·&nbsp; 语言: C (ANSI C99)
+    </div>
+  </section>
+
+  <!-- ── Stats ── -->
+  <section id="stats">
+    <h2>项目统计</h2>
+    <div class="stats">
+      <div class="stat"><div class="stat-num">~3800</div><div class="stat-label">用户代码行数</div></div>
+      <div class="stat"><div class="stat-num">154</div><div class="stat-label">源文件总数</div></div>
+      <div class="stat"><div class="stat-num">3</div><div class="stat-label">最大同时触点</div></div>
+      <div class="stat"><div class="stat-num">8</div><div class="stat-label">高级手势 API</div></div>
+      <div class="stat"><div class="stat-num">3</div><div class="stat-label">BLE GATT 配置文件</div></div>
+      <div class="stat"><div class="stat-num">15</div><div class="stat-label">触摸报告字节数</div></div>
+    </div>
+    <div class="notice ok">
+      用户应用代码位于 <code>user/</code> 目录（~3800 行），固件驱动库位于 <code>firmware/</code>，
+      BLE 协议栈与 GATT Profile 位于 <code>middlewares/</code>。
+    </div>
+  </section>
+
+  <!-- ── Architecture ── -->
+  <section id="architecture">
+    <h2>系统架构</h2>
+    <p>项目采用清晰的 5 层分层架构，从上到下依次为：高级手势层、HID 触摸/键盘层、BLE GATT 层、BLE 协议栈、硬件抽象层。</p>
+    <div class="arch">
+      <div class="arch-layer l1">
+        <div class="arch-name">手势应用层</div>
+        <div class="arch-items">
+          <span class="arch-chip">app_gesture_zoom()</span>
+          <span class="arch-chip">app_gesture_rotate()</span>
+          <span class="arch-chip">app_gesture_screenshot()</span>
+          <span class="arch-chip">app_gesture_swipe*()</span>
+        </div>
+      </div>
+      <div class="arch-layer l2">
+        <div class="arch-name">HID 输入层</div>
+        <div class="arch-items">
+          <span class="arch-chip">app_hid_touchscreen.c</span>
+          <span class="arch-chip">app_hid_keyboard.c</span>
+          <span class="arch-chip">app_multitouch_enhanced.c</span>
+          <span class="arch-chip">触摸/键盘报告构建</span>
+        </div>
+      </div>
+      <div class="arch-layer l3">
+        <div class="arch-name">BLE GATT 层</div>
+        <div class="arch-items">
+          <span class="arch-chip">app_hid.c (HOGPD)</span>
+          <span class="arch-chip">app_batt.c (BASS)</span>
+          <span class="arch-chip">app_dis.c (DIS)</span>
+          <span class="arch-chip">app_ble.c</span>
+        </div>
+      </div>
+      <div class="arch-layer l4">
+        <div class="arch-name">BLE 协议栈</div>
+        <div class="arch-items">
+          <span class="arch-chip">ns_ble (Nations BLE)</span>
+          <span class="arch-chip">GAPM / GAPC</span>
+          <span class="arch-chip">rwip_schedule()</span>
+          <span class="arch-chip">ns_sleep()</span>
+        </div>
+      </div>
+      <div class="arch-layer l5">
+        <div class="arch-name">硬件抽象层</div>
+        <div class="arch-items">
+          <span class="arch-chip">app_gpio.c</span>
+          <span class="arch-chip">ns_delay</span>
+          <span class="arch-chip">ns_log</span>
+          <span class="arch-chip">N32WB03x 外设驱动</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Startup ── -->
+  <section id="startup">
+    <h2>系统启动流程</h2>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>delay_n_10us(200*1000)</strong> — 上电延时 2 秒，预留 SWD 调试窗口，防止上电即进入睡眠</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>NS_LOG_INIT()</strong> — 初始化 USART 日志系统（ERROR / WARNING / INFO 三级别）</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>app_ble_init()</strong> — 初始化 BLE 协议栈，注册 HOGPD / BASS / DIS 三个 GATT 配置文件</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>app_key_configuration()</strong> — 配置按键 GPIO（用于测试触摸/键盘 HID 事件）</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">5</div>
+        <div class="flow-text"><strong>LedInit() / LedOn()</strong> — 初始化电源指示 LED（LED1）和连接状态 LED（LED2）并点亮电源灯</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">6</div>
+        <div class="flow-text"><strong>ResInit(GPIOB, GPIO_PIN_3)</strong> — 配置 PB3 为推挽输出，置高（detect_select），用于调试选择</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">7</div>
+        <div class="flow-text"><strong>while(1) { rwip_schedule(); ns_sleep(); }</strong> — 主循环：调度 BLE 所有挂起事件后进入低功耗睡眠</div>
+      </div>
+    </div>
+
+<pre><code>// main.c - 主函数精简版
+int main(void) {
+    delay_n_10us(200*1000);   // SWD 保持窗口
+    NS_LOG_INIT();
+    app_ble_init();           // BLE 协议栈 + GATT 配置文件初始化
+    app_key_configuration();
+    LedInit(LED1_PORT, LED1_PIN);
+    LedOn(LED1_PORT, LED1_PIN);   // 电源 LED 常亮
+    ResInit(GPIOB, GPIO_PIN_3);
+    detect_select();
+    while (1) {
+        rwip_schedule();      // 调度 BLE 事件
+        ns_sleep();           // 进入低功耗
+    }
+}</code></pre>
+  </section>
+
+  <!-- ── Touchscreen ── -->
+  <section id="touchscreen">
+    <h2>多点触控协议</h2>
+    <p>本项目通过 BLE HOGPD 向主机发送符合 HID 规范的多点触控报告，支持最多 3 个同时触点，坐标系采用逻辑分辨率 32767×32767。</p>
+
+    <h3>触点数据结构（5 字节/触点）</h3>
+<pre><code>// app_hid_touchscreen.h
+typedef struct __attribute__((packed)) {
+    uint8_t  tip_switch : 1;   // 触摸状态：1=按下, 0=抬起
+    uint8_t  contact_id : 7;   // 触点 ID (0-127)
+    uint16_t x;                // X 坐标 (0-32767)
+    uint16_t y;                // Y 坐标 (0-32767)
+} hid_touch_point_t;           // 共 5 字节
+
+// 多触点报告：3 个触点 × 5 字节 = 15 字节
+typedef struct __attribute__((packed)) {
+    hid_touch_point_t touches[MAX_TOUCH_POINTS];  // [0..2]
+} hid_multitouch_report_t;</code></pre>
+
+    <h3>屏幕坐标系</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>参数</th><th>值</th><th>说明</th></tr>
+        <tr><td>SCREEN_WIDTH</td><td class="td-code">32767</td><td>X 轴最大逻辑坐标</td></tr>
+        <tr><td>SCREEN_HEIGHT</td><td class="td-code">32767</td><td>Y 轴最大逻辑坐标</td></tr>
+        <tr><td>MAX_TOUCH_POINTS</td><td class="td-code">3</td><td>最大同时触点数</td></tr>
+        <tr><td>报告 ID</td><td class="td-code">4（idx=3）</td><td>HOGPD Report Index 3</td></tr>
+        <tr><td>报告长度</td><td class="td-code">15 字节</td><td>3 × 5 字节，不含 contact_count</td></tr>
+      </table>
+    </div>
+
+    <h3>HID 报告字节布局</h3>
+<pre><code>// 15 字节报告结构（Report ID 4）
+// 每个触点占 5 字节，格式如下：
+// offset+0: [tip_switch:1 | contact_id:7]  → Byte0
+// offset+1: X 低字节 (LSB)
+// offset+2: X 高字节 (MSB)
+// offset+3: Y 低字节 (LSB)
+// offset+4: Y 高字节 (MSB)
+//
+// 示例：触点 0 按下在屏幕中央 (16383, 16383)
+// Byte0 = 0x01 | (0 << 1) = 0x01  (tip=1, id=0)
+// Byte1 = 0xFF, Byte2 = 0x3F      (x = 0x3FFF = 16383)
+// Byte3 = 0xFF, Byte4 = 0x3F      (y = 0x3FFF = 16383)</code></pre>
+
+    <div class="notice">
+      <strong>注意：</strong>报告中不含 contact_count 字节（已从描述符移除），Windows 多指触控在此配置下工作正常。
+    </div>
+
+    <h3>核心发送函数</h3>
+<pre><code>// app_hid_touchscreen.c
+void app_hid_send_multitouch(const hid_touch_point_t* touches, uint8_t count)
+{
+    uint8_t report[APP_HID_MULTITOUCH_REPORT_LEN];  // 15字节
+    memset(report, 0, sizeof(report));
+
+    for (uint8_t i = 0; i < MAX_TOUCH_POINTS; i++) {
+        uint8_t offset = i * 5;
+        if (i < count && touches != NULL) {
+            // 活跃触点：写入 tip_switch + contact_id + X + Y
+            const hid_touch_point_t* t = &touches[i];
+            report[offset]   = (t->tip_switch ? 0x01 : 0x00) | ((t->contact_id & 0x7F) << 1);
+            report[offset+1] = t->x & 0xFF;
+            report[offset+2] = (t->x >> 8) & 0xFF;
+            report[offset+3] = t->y & 0xFF;
+            report[offset+4] = (t->y >> 8) & 0xFF;
+        } else {
+            report[offset] = (i << 1);   // 无触点：仅保留 contact_id
+        }
+    }
+    // 通过 HOGPD 发送到主机
+    ke_msg_send(req);
+}</code></pre>
+  </section>
+
+  <!-- ── High-Level Gesture APIs ── -->
+  <section id="gesture-high">
+    <h2>高级手势 API</h2>
+    <p>高级 API 封装了底层多点触控操作，只需调用单个函数即可触发常用系统手势，无需手动管理触点坐标。</p>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>API 函数</th><th>参数</th><th>触发手势</th><th>典型场景</th></tr>
+        <tr>
+          <td class="td-code">app_gesture_zoom(level, is_in)</td>
+          <td>level: 1-10<br>is_in: 0/1</td>
+          <td>双指捏合/展开（水平）</td>
+          <td>放大/缩小图片、地图</td>
+        </tr>
+        <tr>
+          <td class="td-code">app_gesture_rotate(angle)</td>
+          <td>angle: -180 ~ +180°</td>
+          <td>双指旋转（圆弧轨迹）</td>
+          <td>旋转图片、地图方向</td>
+        </tr>
+        <tr>
+          <td class="td-code">app_gesture_screenshot(start%)</td>
+          <td>start: 0-70%</td>
+          <td>三指向下滑动</td>
+          <td>Android 三指截图</td>
+        </tr>
+        <tr>
+          <td class="td-code">app_gesture_swipe(dist, vertical)</td>
+          <td>dist: 像素<br>vertical: 0/1</td>
+          <td>单指水平/垂直滑动</td>
+          <td>滚动页面、切换页面</td>
+        </tr>
+        <tr>
+          <td class="td-code">app_gesture_swipe_up_from_bottom()</td>
+          <td>无</td>
+          <td>底部上滑（100%→70%）</td>
+          <td>返回主屏 / 多任务</td>
+        </tr>
+        <tr>
+          <td class="td-code">app_gesture_swipe_down_from_top()</td>
+          <td>无</td>
+          <td>顶部下拉（0→20%）</td>
+          <td>打开通知栏</td>
+        </tr>
+        <tr>
+          <td class="td-code">app_gesture_swipe_right_from_left()</td>
+          <td>无</td>
+          <td>左边右滑（0→50%）</td>
+          <td>返回上一页</td>
+        </tr>
+        <tr>
+          <td class="td-code">app_gesture_swipe_left_from_right()</td>
+          <td>无</td>
+          <td>右边左滑（100%→50%）</td>
+          <td>前进 / 关闭侧栏</td>
+        </tr>
+      </table>
+    </div>
+
+    <h3>缩放手势实现示例</h3>
+<pre><code>// app_gesture_zoom() - 双指捏合/展开
+void app_gesture_zoom(uint8_t zoom_level, uint8_t is_zoom_in)
+{
+    uint16_t center_x = SCREEN_WIDTH / 2;   // 屏幕中心
+    uint16_t center_y = SCREEN_HEIGHT / 2;
+
+    // 基础距离 = 2000 + level*800 (像素)
+    uint16_t base_distance = 2000 + (zoom_level * 800);
+    uint16_t start_distance, end_distance;
+
+    if (is_zoom_in) {
+        start_distance = base_distance / 2;   // 放大：手指由近到远
+        end_distance   = base_distance;
+    } else {
+        start_distance = base_distance;        // 缩小：手指由远到近
+        end_distance   = base_distance / 2;
+    }
+    // 持续时间 300-800ms，调用底层 pinch 函数
+    uint16_t duration_ms = 300 + (zoom_level * 50);
+    app_touchscreen_pinch(center_x, center_y, start_distance, end_distance, duration_ms);
+}</code></pre>
+
+    <h3>旋转手势实现示例</h3>
+<pre><code>// app_touchscreen_rotate() - 双指圆弧旋转
+// radius = SCREEN_WIDTH / 4，步数 = 20
+for (uint8_t i = 0; i <= steps; i++) {
+    float current_angle = angle_step_radians * i;
+
+    // 手指1：以 center 为圆心，半径 radius 处旋转
+    int16_t x1 = center_x + (int16_t)(radius * cosf(current_angle));
+    int16_t y1 = center_y + (int16_t)(radius * sinf(current_angle));
+
+    // 手指2：在手指1 对面 (偏移 π)
+    float angle2 = 3.14159f + current_angle;
+    int16_t x2 = center_x + (int16_t)(radius * cosf(angle2));
+    int16_t y2 = center_y + (int16_t)(radius * sinf(angle2));
+
+    app_hid_send_multitouch(touches, 2);  // 同时发送两个触点
+    delay_n_ms(delay_per_step);
+}</code></pre>
+  </section>
+
+  <!-- ── Low-Level Touch APIs ── -->
+  <section id="gesture-low">
+    <h2>底层触摸 API</h2>
+    <p>底层 API 提供原始触摸事件控制，适合自定义手势轨迹，所有坐标以逻辑像素为单位（0–32767）。</p>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>函数</th><th>说明</th><th>关键参数</th></tr>
+        <tr>
+          <td class="td-code">app_hid_send_touchscreen()</td>
+          <td>发送单点触摸事件（便捷封装）</td>
+          <td>contact_id, is_touching, x, y, pressure</td>
+        </tr>
+        <tr>
+          <td class="td-code">app_hid_send_multitouch()</td>
+          <td>直接发送多点触摸报告（核心函数）</td>
+          <td>touches[], count (0=全部抬起)</td>
+        </tr>
+        <tr>
+          <td class="td-code">app_touchscreen_tap()</td>
+          <td>模拟单指点击（按下 50ms 后抬起）</td>
+          <td>x, y</td>
+        </tr>
+        <tr>
+          <td class="td-code">app_touchscreen_swipe()</td>
+          <td>单指从起点到终点平滑滑动（10 步插值）</td>
+          <td>x_start, y_start, x_end, y_end, duration_ms</td>
+        </tr>
+        <tr>
+          <td class="td-code">app_touchscreen_multi_tap()</td>
+          <td>多指同时点击（按下 100ms 后全部抬起）</td>
+          <td>finger_count, x_coords[], y_coords[]</td>
+        </tr>
+        <tr>
+          <td class="td-code">app_multi_touchscreen_swipe()</td>
+          <td>多指同时从各自起点滑向终点</td>
+          <td>count, x_start[], y_start[], x_end[], y_end[], duration_ms</td>
+        </tr>
+        <tr>
+          <td class="td-code">app_touchscreen_pinch()</td>
+          <td>双指捏合/展开（水平对称，10 步插值）</td>
+          <td>center_x/y, start_distance, end_distance, duration_ms</td>
+        </tr>
+        <tr>
+          <td class="td-code">app_touchscreen_rotate()</td>
+          <td>双指圆弧旋转（三角函数计算，20 步插值）</td>
+          <td>center_x/y, radius, angle_degrees, duration_ms</td>
+        </tr>
+      </table>
+    </div>
+
+    <h3>滑动插值逻辑</h3>
+<pre><code>// app_touchscreen_swipe() - 10步线性插值滑动
+void app_touchscreen_swipe(uint16_t x_start, uint16_t y_start,
+                           uint16_t x_end,   uint16_t y_end,
+                           uint16_t duration_ms)
+{
+    uint8_t  steps = 10;
+    uint16_t delay_per_step = duration_ms / steps;
+    int16_t  x_step = (x_end - x_start) / steps;
+    int16_t  y_step = (y_end - y_start) / steps;
+
+    // 按下
+    app_hid_send_touchscreen(0, 1, x_start, y_start, 100);
+    // 插值移动
+    for (uint8_t i = 1; i < steps; i++) {
+        current_x += x_step;
+        current_y += y_step;
+        app_hid_send_touchscreen(0, 1, current_x, current_y, 100);
+        delay_n_ms(delay_per_step);
+    }
+    // 落点 + 抬起
+    app_hid_send_touchscreen(0, 1, x_end, y_end, 100);
+    delay_n_ms(10);
+    app_hid_send_touchscreen(0, 0, x_end, y_end, 0);
+}</code></pre>
+  </section>
+
+  <!-- ── Keyboard ── -->
+  <section id="keyboard">
+    <h2>HID 键盘</h2>
+    <p>项目同时实现了完整的 BLE HID 键盘功能，支持标准 USB HID 键码规范，报告格式为 8 字节。</p>
+
+    <h3>键盘报告结构（8 字节）</h3>
+<pre><code>// app_hid_keyboard.h
+typedef struct {
+    uint8_t modifier;    // Byte 0: 修饰键 (Ctrl/Shift/Alt/GUI)
+    uint8_t reserved;    // Byte 1: 保留字节 (固定为 0x00)
+    uint8_t keys[6];     // Byte 2-7: 最多 6 个同时按键的键码
+} hid_keyboard_report_t;
+
+// 构建报告
+void build_keyboard_report(hid_keyboard_report_t* report,
+                           uint8_t modifier,
+                           uint8_t* keys,
+                           uint8_t key_count);</code></pre>
+
+    <h3>修饰键位掩码</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>宏定义</th><th>位掩码</th><th>说明</th></tr>
+        <tr><td class="td-code">HID_MOD_LCTRL</td><td>0x01</td><td>左 Control</td></tr>
+        <tr><td class="td-code">HID_MOD_LSHIFT</td><td>0x02</td><td>左 Shift</td></tr>
+        <tr><td class="td-code">HID_MOD_LALT</td><td>0x04</td><td>左 Alt</td></tr>
+        <tr><td class="td-code">HID_MOD_LGUI</td><td>0x08</td><td>左 GUI (Windows/Command)</td></tr>
+        <tr><td class="td-code">HID_MOD_RCTRL</td><td>0x10</td><td>右 Control</td></tr>
+        <tr><td class="td-code">HID_MOD_RSHIFT</td><td>0x20</td><td>右 Shift</td></tr>
+        <tr><td class="td-code">HID_MOD_RALT</td><td>0x40</td><td>右 Alt (Alt Gr)</td></tr>
+        <tr><td class="td-code">HID_MOD_RGUI</td><td>0x80</td><td>右 GUI (Windows/Command)</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Key Codes ── -->
+  <section id="keycodes">
+    <h2>键码定义一览</h2>
+    <p>符合 USB HID Usage Tables 规范，键码范围 0x04–0xE7，支持字母、数字、功能键、小键盘、媒体控制等。</p>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">&#128289;</div>
+        <div class="card-title">字母键 A-Z</div>
+        <div class="card-desc">
+          HID_KEY_A = 0x04<br>
+          HID_KEY_B = 0x05<br>
+          …<br>
+          HID_KEY_Z = 0x1D
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">&#128290;</div>
+        <div class="card-title">数字键 0-9</div>
+        <div class="card-desc">
+          HID_KEY_1 = 0x1E<br>
+          HID_KEY_2 = 0x1F<br>
+          …<br>
+          HID_KEY_0 = 0x27
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">&#9881;</div>
+        <div class="card-title">功能键 F1-F24</div>
+        <div class="card-desc">
+          HID_KEY_F1 = 0x3A<br>
+          …<br>
+          HID_KEY_F12 = 0x45<br>
+          HID_KEY_F13-F24 = 0x68-0x73
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">&#9654;</div>
+        <div class="card-title">编辑导航键</div>
+        <div class="card-desc">
+          HOME = 0x4A<br>
+          END = 0x4D<br>
+          PAGEUP/DOWN = 0x4B/0x4E<br>
+          方向键 = 0x4F-0x52
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">&#127925;</div>
+        <div class="card-title">媒体控制键</div>
+        <div class="card-desc">
+          MUTE = 0x7F<br>
+          VOLUME_UP = 0x80<br>
+          VOLUME_DOWN = 0x81<br>
+          PLAY_PAUSE = 0x85
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">&#128291;</div>
+        <div class="card-title">特殊功能键</div>
+        <div class="card-desc">
+          ENTER = 0x28<br>
+          ESC = 0x29<br>
+          BACKSPACE = 0x2A<br>
+          CAPS_LOCK = 0x39
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── BLE Profiles ── -->
+  <section id="ble-profiles">
+    <h2>BLE GATT 配置文件</h2>
+    <p>设备实现了三个标准 Bluetooth SIG GATT Profile，通过 HOGPD 发送 HID 报告，通过 BASS/DIS 提供基础设备信息。</p>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>Profile</th><th>缩写</th><th>状态</th><th>功能描述</th></tr>
+        <tr>
+          <td><strong>HID Over GATT Profile Device</strong></td>
+          <td class="td-code">HOGPD</td>
+          <td>✓ 启用</td>
+          <td>核心 HID 服务，负责发送触摸屏和键盘报告到主机</td>
+        </tr>
+        <tr>
+          <td><strong>Battery Service</strong></td>
+          <td class="td-code">BASS</td>
+          <td>✓ 启用</td>
+          <td>电池电量上报服务，主机可读取当前电量百分比</td>
+        </tr>
+        <tr>
+          <td><strong>Device Information Service</strong></td>
+          <td class="td-code">DIS</td>
+          <td>✓ 启用</td>
+          <td>设备信息服务，上报固件/硬件版本（均为 "1.0.0"）</td>
+        </tr>
+      </table>
+    </div>
+
+    <h3>BLE 事件处理流程</h3>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>APP_BLE_OS_READY</strong> — BLE 协议栈就绪，开始广播（Fast Advertising：100ms 间隔）</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>APP_BLE_CONNECTED</strong> — 主机连接成功，熄灭广播 LED，设备进入已连接状态</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>APP_HID_READY</strong> — HOGPD 服务就绪（主机订阅通知），可开始发送 HID 报告</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>app_hid_send_multitouch() / send_keyboard()</strong> — 按需发送触摸屏或键盘报告</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">5</div>
+        <div class="flow-text"><strong>APP_BLE_DISCONNECTED</strong> — 连接断开，重新启动 Slow Advertising（2s 间隔，180s 超时）</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── BLE Connection ── -->
+  <section id="ble-conn">
+    <h2>连接参数与安全配置</h2>
+
+    <h3>连接参数</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>参数</th><th>值</th><th>说明</th></tr>
+        <tr><td>MIN_CONN_INTERVAL</td><td>30 ms</td><td>最小连接间隔，保证 HID 低延迟</td></tr>
+        <tr><td>MAX_CONN_INTERVAL</td><td>50 ms</td><td>最大连接间隔</td></tr>
+        <tr><td>SLAVE_LATENCY</td><td>5</td><td>从设备延迟（可跳过 5 个连接事件）</td></tr>
+        <tr><td>CONN_SUP_TIMEOUT</td><td>5000 ms</td><td>连接监督超时，超时后视为断开</td></tr>
+        <tr><td>FIRST_CONN_PARAMS_UPDATE_DELAY</td><td>0 ms</td><td>连接后立即更新连接参数</td></tr>
+      </table>
+    </div>
+
+    <h3>安全与绑定配置</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>参数</th><th>值</th><th>说明</th></tr>
+        <tr><td>SEC_PARAM_BOND</td><td>1（启用）</td><td>支持设备绑定，保存配对信息</td></tr>
+        <tr><td>SEC_PARAM_MITM</td><td>1（启用）</td><td>中间人攻击防护</td></tr>
+        <tr><td>SEC_PARAM_KEY_SIZE</td><td>16 字节</td><td>加密密钥长度（最高安全级别）</td></tr>
+        <tr><td>SEC_PARAM_IO_CAPABILITIES</td><td>DISPLAY_ONLY</td><td>仅显示（无输入能力）</td></tr>
+        <tr><td>SEC_PARAM_SEC_MODE_LEVEL</td><td>AUTH_PAIR_ENC</td><td>需要认证配对和加密</td></tr>
+        <tr><td>MAX_BOND_PEER</td><td>5</td><td>最多绑定 5 个主机设备</td></tr>
+        <tr><td>BOND_DATA_BASE_ADDR</td><td>0x0103B000</td><td>Flash 中绑定数据存储地址</td></tr>
+      </table>
+    </div>
+
+<pre><code>// app_user_config.h - 安全配置
+#define SEC_PARAM_BOND     1                        // 启用绑定
+#define SEC_PARAM_MITM     1                        // MITM 防护
+#define SEC_PARAM_KEY_SIZE 16                       // 16字节加密密钥
+#define SEC_PARAM_IO_CAPABILITIES  GAP_IO_CAP_DISPLAY_ONLY
+#define SEC_PARAM_SEC_MODE_LEVEL   GAP_SEC1_AUTH_PAIR_ENC
+#define MAX_BOND_PEER      5                        // 最多绑定5台设备
+#define BOND_STORE_ENABLE  1                        // 绑定信息持久化
+#define BOND_DATA_BASE_ADDR  0x0103B000             // Flash 存储地址
+// MTK 手机兼容补丁
+#define _PATCH_ENC_RESPONDSE_ 1</code></pre>
+  </section>
+
+  <!-- ── BLE Advertising ── -->
+  <section id="ble-adv">
+    <h2>广播配置</h2>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>参数</th><th>值</th><th>说明</th></tr>
+        <tr><td>设备名称</td><td class="td-code">hid_mouse</td><td>主机扫描时显示的蓝牙名称</td></tr>
+        <tr><td>快速广播间隔</td><td>100 ms（160 × 0.625ms）</td><td>连接断开后立即使用，吸引主机连接</td></tr>
+        <tr><td>慢速广播间隔</td><td>2000 ms（3200 × 0.625ms）</td><td>快速广播结束后切换，节省功耗</td></tr>
+        <tr><td>快速广播时长</td><td>0（不限时）</td><td>无时间限制，持续广播</td></tr>
+        <tr><td>慢速广播时长</td><td>180 s</td><td>180秒后停止广播，等待唤醒</td></tr>
+        <tr><td>广播 UUID</td><td>0x1812（HID Service）</td><td>告知主机这是 HID 设备</td></tr>
+        <tr><td>Scan Response</td><td>"Nations" 厂商数据</td><td>厂商标识 0xFFFF + "Nations"</td></tr>
+      </table>
+    </div>
+
+<pre><code>// app_user_config.h - 广播数据配置
+#define CUSTOM_DEVICE_NAME  "hid_mouse"
+
+// 广播包：包含 HID Service UUID (0x1812)
+#define CUSTOM_USER_ADVERTISE_DATA \
+    "\x03" ADV_TYPE_INCOMPLETE_LIST_16BIT_SERVICE_IDS \
+    ADV_UUID_HUMAN_INTERFACE_DEVICE_SERVICE
+
+// Scan Response：Nations 厂商数据
+#define CUSTOM_USER_ADV_SCNRSP_DATA \
+    "\x0a" ADV_TYPE_MANUFACTURER_SPECIFIC_DATA \
+    "\xff\xffNations"</code></pre>
+  </section>
+
+  <!-- ── GPIO ── -->
+  <section id="gpio">
+    <h2>GPIO 配置</h2>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>引脚</th><th>方向</th><th>功能</th><th>说明</th></tr>
+        <tr><td class="td-code">LED1_PORT/LED1_PIN</td><td>推挽输出</td><td>电源指示 LED</td><td>上电即点亮，常亮</td></tr>
+        <tr><td class="td-code">LED2_PORT/LED2_PIN</td><td>推挽输出</td><td>连接状态 LED</td><td>BLE 已连接时点亮</td></tr>
+        <tr><td class="td-code">GPIOB / GPIO_PIN_3</td><td>推挽输出</td><td>调试选择信号</td><td>ResInit → detect_select()，置高</td></tr>
+        <tr><td class="td-code">GPIOA / GPIOB</td><td>—</td><td>按键 GPIO</td><td>app_key_configuration() 配置，触发 HID 测试事件</td></tr>
+      </table>
+    </div>
+
+<pre><code>// main.c - GPIO 初始化
+LedInit(LED1_PORT, LED1_PIN);   // 电源 LED：推挽输出
+LedInit(LED2_PORT, LED2_PIN);   // 连接 LED：推挽输出
+LedOn(LED1_PORT, LED1_PIN);     // 上电点亮电源灯
+
+ResInit(GPIOB, GPIO_PIN_3);     // PB3: 推挽输出
+detect_select();                 // PB3 置高
+
+// 睡眠唤醒后恢复 GPIO 时钟
+void app_sleep_resume_proc(void) {
+    RCC_EnableAPB2PeriphClk(RCC_APB2_PERIPH_GPIOA, ENABLE);
+    RCC_EnableAPB2PeriphClk(RCC_APB2_PERIPH_GPIOB, ENABLE);
+}</code></pre>
+  </section>
+
+  <!-- ── HID Report Format ── -->
+  <section id="hid-report">
+    <h2>HID 报告格式总览</h2>
+    <p>设备向主机发送两类 HID 报告：触摸屏报告（Report ID 4）和键盘报告（Report ID 1）。</p>
+
+    <h3>触摸屏报告（15 字节，Report ID 4）</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>字节偏移</th><th>字段</th><th>位宽</th><th>说明</th></tr>
+        <tr><td>0[b0]</td><td>tip_switch (Finger 0)</td><td>1 bit</td><td>手指是否接触屏幕</td></tr>
+        <tr><td>0[b7:1]</td><td>contact_id (Finger 0)</td><td>7 bit</td><td>触点 ID = 0</td></tr>
+        <tr><td>1-2</td><td>X coordinate (Finger 0)</td><td>16 bit</td><td>X 坐标，小端序</td></tr>
+        <tr><td>3-4</td><td>Y coordinate (Finger 0)</td><td>16 bit</td><td>Y 坐标，小端序</td></tr>
+        <tr><td>5-9</td><td>Finger 1 (同上格式)</td><td>40 bit</td><td>触点 ID = 1</td></tr>
+        <tr><td>10-14</td><td>Finger 2 (同上格式)</td><td>40 bit</td><td>触点 ID = 2</td></tr>
+      </table>
+    </div>
+
+    <h3>键盘报告（8 字节，Report ID 1）</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>字节偏移</th><th>字段</th><th>说明</th></tr>
+        <tr><td>0</td><td>modifier</td><td>修饰键位掩码（Ctrl/Shift/Alt/GUI）</td></tr>
+        <tr><td>1</td><td>reserved</td><td>保留字节，固定 0x00</td></tr>
+        <tr><td>2</td><td>key[0]</td><td>第 1 个按键键码</td></tr>
+        <tr><td>3</td><td>key[1]</td><td>第 2 个按键键码</td></tr>
+        <tr><td>4</td><td>key[2]</td><td>第 3 个按键键码</td></tr>
+        <tr><td>5</td><td>key[3]</td><td>第 4 个按键键码</td></tr>
+        <tr><td>6</td><td>key[4]</td><td>第 5 个按键键码</td></tr>
+        <tr><td>7</td><td>key[5]</td><td>第 6 个按键键码（最多 6 键同时）</td></tr>
+      </table>
+    </div>
+
+    <div class="notice ok">
+      两类报告均通过 <code>HOGPD_REPORT_UPD_REQ</code> 消息经 BLE GATT Notification 推送到主机，
+      主机无需轮询，低功耗且实时性高。
+    </div>
+  </section>
+
+  <!-- ── Files ── -->
+  <section id="files">
+    <h2>文件结构与说明</h2>
+
+    <h3>用户应用层（user/）</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>文件</th><th>行数</th><th>功能描述</th></tr>
+        <tr><td class="td-code">user/src/main.c</td><td>~160</td><td>程序入口，GPIO/LED 初始化，BLE 主循环</td></tr>
+        <tr><td class="td-code">user/src/app_ble.c</td><td>~500</td><td>BLE 消息分发，连接/断开/就绪事件处理</td></tr>
+        <tr><td class="td-code">user/src/app_gpio.c</td><td>~100</td><td>GPIO/LED/按键配置与控制</td></tr>
+        <tr><td class="td-code">user/src/app_hid_touchscreen.c</td><td>~675</td><td>核心：多点触控报告构建与手势 API 实现</td></tr>
+        <tr><td class="td-code">user/src/app_hid_keyboard.c</td><td>~100</td><td>HID 键盘报告构建</td></tr>
+        <tr><td class="td-code">user/src/app_multitouch_enhanced.c</td><td>~200</td><td>Windows 兼容增强版多点触控实现</td></tr>
+        <tr><td class="td-code">user/src/app_profile/app_hid.c</td><td>~400</td><td>HOGPD 配置文件服务实现，报告发送</td></tr>
+        <tr><td class="td-code">user/src/app_profile/app_batt.c</td><td>~300</td><td>Battery Service 实现</td></tr>
+        <tr><td class="td-code">user/src/app_profile/app_dis.c</td><td>~200</td><td>Device Information Service 实现</td></tr>
+        <tr><td class="td-code">user/inc/app_hid_touchscreen.h</td><td>~200</td><td>触摸屏 API 声明，结构体定义，宏定义</td></tr>
+        <tr><td class="td-code">user/inc/app_hid_keyboard.h</td><td>~214</td><td>键盘键码宏定义，报告结构体定义</td></tr>
+        <tr><td class="td-code">user/inc/app_user_config.h</td><td>~128</td><td>BLE 广播/连接/安全/绑定全局配置</td></tr>
+      </table>
+    </div>
+
+    <h3>固件与中间件层</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>目录</th><th>说明</th></tr>
+        <tr><td class="td-code">firmware/CMSIS/</td><td>ARM CMSIS 标准头文件（core + N32WB03x device）</td></tr>
+        <tr><td class="td-code">firmware/n32wb03x_std_periph_driver/</td><td>Nations 标准外设库（GPIO/UART/SPI/I2C/RCC 等）</td></tr>
+        <tr><td class="td-code">middlewares/Nationstech/ble_library/</td><td>Nations BLE 协议栈（ns_ble）及 GATT Profile 实现</td></tr>
+        <tr><td class="td-code">MDK-ARM/touch_screen.uvprojx</td><td>Keil MDK-ARM 主工程文件</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Config ── -->
+  <section id="config">
+    <h2>编译配置详解</h2>
+
+    <h3>设备与版本信息</h3>
+<pre><code>// app_user_config.h
+#define CUSTOM_DEVICE_NAME    "hid_mouse"   // BLE 广播名
+#define FIRMWARE_VERSION      "1.0.0"       // 固件版本（DIS 上报）
+#define HARDWARE_VERSION      "1.0.0"       // 硬件版本（DIS 上报）</code></pre>
+
+    <h3>日志系统配置</h3>
+<pre><code>// 四级日志控制
+#define NS_LOG_ERROR_ENABLE    1   // 错误日志
+#define NS_LOG_WARNING_ENABLE  1   // 警告日志（触摸坐标等）
+#define NS_LOG_INFO_ENABLE     1   // 信息日志（手势触发）
+#define NS_LOG_DEBUG_ENABLE    0   // 调试日志（默认关闭）
+#define NS_LOG_USART_ENABLE    1   // USART 串口输出</code></pre>
+
+    <h3>广播间隔配置</h3>
+<pre><code>// 快速广播：100 ms (160 × 0.625 ms)
+#define CUSTOM_ADV_FAST_INTERVAL  160
+#define CUSTOM_ADV_FAST_DURATION  0      // 不限时
+
+// 慢速广播：2 s (3200 × 0.625 ms)，持续 180 s
+#define CUSTOM_ADV_SLOW_INTERVAL  3200
+#define CUSTOM_ADV_SLOW_DURATION  180</code></pre>
+
+    <h3>GATT Profile 启用开关</h3>
+<pre><code>#define CFG_APP_DIS   1    // Device Information Service（应用层）
+#define CFG_PRF_DISS  1    // DIS Profile（中间件）
+#define CFG_APP_BATT  1    // Battery Service（应用层）
+#define CFG_PRF_BASS  1    // BASS Profile（中间件）
+#define CFG_PRF_HOGPD 1    // HID Over GATT Profile Device（中间件）
+#define CFG_APP_HID   1    // HID（应用层）</code></pre>
+
+    <h3>坐标与触点宏定义</h3>
+<pre><code>// app_hid_touchscreen.h
+#define SCREEN_WIDTH   32767   // X 轴逻辑最大值
+#define SCREEN_HEIGHT  32767   // Y 轴逻辑最大值
+#define MAX_TOUCH_POINTS  3    // 最大同时触点数
+
+// 报告长度 = MAX_TOUCH_POINTS × 5字节
+#define APP_HID_MULTITOUCH_REPORT_LEN  (MAX_TOUCH_POINTS * 5)  // = 15</code></pre>
+
+    <div class="notice warn">
+      <strong>开发注意：</strong>修改 <code>MAX_TOUCH_POINTS</code> 时，需同步更新 HID 报告描述符中的触点数量定义，
+      否则主机可能无法正确解析报告。描述符修改后需重新配对。
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  N32WB_HID 蓝牙 HID 触摸屏与键盘设备 &nbsp;·&nbsp; Nations N32WB03x &nbsp;·&nbsp; BLE HOGPD / BASS / DIS &nbsp;·&nbsp; Firmware v1.0.0
+</footer>
+</main>
+
+<script>
+  // ── Menu Toggle ──
+  const toggle = document.getElementById('menu-toggle');
+  toggle.addEventListener('click', () => {
+    document.body.classList.toggle('menu-open');
+  });
+
+  // ── Active link on scroll ──
+  const sections = document.querySelectorAll('section[id], h3[id]');
+  const links = document.querySelectorAll('.sidebar-link, .sidebar-sublink');
+
+  function updateActive() {
+    let current = '';
+    sections.forEach(sec => {
+      const top = sec.getBoundingClientRect().top;
+      if (top <= 80) current = sec.id;
+    });
+    links.forEach(a => {
+      const isActive = a.getAttribute('href') === '#' + current;
+      a.classList.toggle('active', isActive);
+      if (isActive) a.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+  }
+
+  document.getElementById('main').addEventListener('scroll', updateActive);
+  window.addEventListener('scroll', updateActive);
+
+  // ── Copy button ──
+  document.querySelectorAll('pre').forEach(pre => {
+    const btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.title = '复制代码';
+    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    btn.addEventListener('click', () => {
+      const code = pre.querySelector('code') ? pre.querySelector('code').innerText : pre.innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        btn.classList.add('copied');
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+        }, 2000);
+      });
+    });
+    pre.appendChild(btn);
+  });
+
+  // ── Smooth scroll ──
+  links.forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (window.innerWidth < 700) document.body.classList.remove('menu-open');
+    });
+  });
+
+  // ── Collapsible sidebar toggle ──
+  function toggleExpand(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('open');
+  }
+</script>
+</body>
+</html>

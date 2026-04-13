@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>nRF52832 BLE/ANT 双协议中继器 · 技术文档</title>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --border: #e8e8e8;
+      --text: #1a1a1a;
+      --muted: #888;
+      --accent: #2d6be4;
+      --accent-light: #eef3fd;
+      --tag-bg: #f0f0f0;
+      --sidebar-w: 260px;
+      --header-h: 52px;
+      --radius: 6px;
+      --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Courier New', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    /* ── Header ── */
+    #header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 16px;
+      z-index: 100;
+    }
+
+    #menu-toggle {
+      width: 36px; height: 36px;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 4px;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    #menu-toggle:hover { background: var(--tag-bg); }
+    #menu-toggle span {
+      display: block;
+      width: 16px; height: 1.5px;
+      background: var(--text);
+      border-radius: 2px;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    body.menu-open #menu-toggle span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+    body.menu-open #menu-toggle span:nth-child(2) { opacity: 0; }
+    body.menu-open #menu-toggle span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+
+    #brand {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -.2px;
+      color: var(--text);
+    }
+    #brand sup {
+      font-size: 10px;
+      font-weight: 400;
+      color: var(--muted);
+      margin-left: 6px;
+    }
+
+    .header-meta {
+      margin-left: auto;
+      display: flex; gap: 8px;
+    }
+    .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: var(--accent-light);
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      position: fixed;
+      top: var(--header-h); left: 0; bottom: 0;
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      transform: translateX(0);
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 90;
+      padding: 16px 0 32px;
+    }
+    body:not(.menu-open) #sidebar { transform: translateX(calc(-1 * var(--sidebar-w))); }
+
+    .sidebar-section { margin-bottom: 8px; }
+    .sidebar-section-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 8px 20px 4px;
+    }
+    .sidebar-link {
+      display: block;
+      padding: 6px 20px;
+      color: #444;
+      text-decoration: none;
+      font-size: 13px;
+      border-left: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .sidebar-link:hover {
+      color: var(--accent);
+      background: var(--accent-light);
+      border-left-color: var(--accent);
+    }
+    .sidebar-link.active {
+      color: var(--accent);
+      background: var(--accent-light);
+      border-left-color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* ── Sidebar sublink ── */
+    .sidebar-sublink {
+      display: block; padding: 3px 20px 3px 30px;
+      color: #888; text-decoration: none; font-size: 12px;
+      border-left: 2px solid transparent; transition: all 0.15s;
+    }
+    .sidebar-sublink:hover { color: var(--accent); background: var(--accent-light); border-left-color: var(--accent); }
+    .sidebar-sublink.active { color: var(--accent); background: var(--accent-light); border-left-color: var(--accent); }
+
+    /* ── Collapsible sidebar item ── */
+    .sidebar-expand-row { display: flex; align-items: stretch; }
+    .sidebar-expand-row .sidebar-link { flex: 1; padding-right: 2px; }
+    .sidebar-chevron {
+      width: 28px; flex-shrink: 0; margin-right: 6px;
+      background: none; border: none; cursor: pointer;
+      color: var(--muted); font-size: 18px; font-weight: 300;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 3px; padding: 0; line-height: 1;
+      transition: transform 0.22s ease, color 0.15s, background 0.15s;
+    }
+    .sidebar-chevron:hover { color: var(--accent); background: var(--accent-light); }
+    .sidebar-expandable.open .sidebar-chevron { transform: rotate(90deg); }
+    .sidebar-submenu {
+      overflow: hidden; max-height: 0;
+      transition: max-height 0.28s ease-in-out;
+    }
+    .sidebar-expandable.open .sidebar-submenu { max-height: 500px; }
+
+    /* ── Main ── */
+    #main {
+      margin-top: var(--header-h);
+      margin-left: var(--sidebar-w);
+      transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      min-height: calc(100vh - var(--header-h));
+    }
+    body:not(.menu-open) #main { margin-left: 0; }
+
+    .content {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 48px 32px 80px;
+    }
+
+    /* ── Sections ── */
+    section { margin-bottom: 64px; }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -.5px;
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+
+    h2 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 24px 0 10px;
+    }
+
+    p { color: #444; margin-bottom: 12px; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Hero ── */
+    .hero-desc {
+      font-size: 16px;
+      color: #555;
+      max-width: 640px;
+      line-height: 1.8;
+      margin-bottom: 28px;
+    }
+    .hero-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px; }
+    .tag {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: var(--tag-bg);
+      color: #555;
+    }
+
+    /* ── Cards ── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+    .card-icon { font-size: 20px; margin-bottom: 8px; }
+    .card-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .card-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th {
+      text-align: left;
+      padding: 8px 12px;
+      background: #f5f5f5;
+      border: 1px solid var(--border);
+      font-weight: 600;
+      color: #555;
+    }
+    td {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      color: #444;
+      vertical-align: top;
+    }
+    tr:hover td { background: #fafafa; }
+    .td-code {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: #f8f8f8;
+      color: #c0392b;
+    }
+
+    /* ── Code ── */
+    pre {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      border-radius: var(--radius);
+      padding: 20px;
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.7;
+      margin: 16px 0;
+      position: relative;
+    }
+    .copy-btn {
+      position: absolute; top: 8px; right: 8px;
+      width: 28px; height: 28px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 4px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity 0.15s, background 0.15s;
+      color: #cdd6f4; padding: 0;
+    }
+    pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { background: rgba(255,255,255,0.18); }
+    .copy-btn.copied { color: #a6e3a1; border-color: #a6e3a1; }
+    code {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      background: #f3f3f3;
+      border-radius: 3px;
+      padding: 1px 5px;
+      color: #c0392b;
+    }
+    pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+
+    /* ── Arch diagram ── */
+    .arch { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin: 16px 0; }
+    .arch-layer {
+      padding: 14px 20px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 16px;
+    }
+    .arch-layer:last-child { border-bottom: none; }
+    .arch-name {
+      font-size: 12px; font-weight: 600; color: var(--muted);
+      min-width: 110px; text-transform: uppercase; letter-spacing: .5px;
+    }
+    .arch-items { display: flex; flex-wrap: wrap; gap: 6px; }
+    .arch-chip {
+      font-size: 11.5px; padding: 3px 10px; border-radius: 20px;
+      background: var(--tag-bg); color: #444;
+    }
+    .arch-layer.l1 { background: #eef3fd; }
+    .arch-layer.l1 .arch-chip { background: #d0e1fd; color: #1a4db7; }
+    .arch-layer.l2 { background: #f0faf5; }
+    .arch-layer.l2 .arch-chip { background: #c2edd8; color: #1a6648; }
+    .arch-layer.l3 { background: #fdf8ee; }
+    .arch-layer.l3 .arch-chip { background: #fae6b0; color: #7a5200; }
+    .arch-layer.l4 { background: #fdf3f0; }
+    .arch-layer.l4 .arch-chip { background: #f9cfc8; color: #8b1c0e; }
+    .arch-layer.l5 { background: #f8f0fe; }
+    .arch-layer.l5 .arch-chip { background: #e1c7fc; color: #5b1fa3; }
+
+    /* ── Stats ── */
+    .stats { display: flex; gap: 16px; flex-wrap: wrap; margin: 20px 0; }
+    .stat {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px 24px;
+      min-width: 120px; text-align: center;
+    }
+    .stat-num { font-size: 26px; font-weight: 700; color: var(--accent); letter-spacing: -.5px; }
+    .stat-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Flow ── */
+    .flow {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px 24px; margin: 16px 0;
+    }
+    .flow-step {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 8px 0; border-bottom: 1px dashed #eee;
+    }
+    .flow-step:last-child { border-bottom: none; }
+    .flow-num {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--accent); color: #fff;
+      font-size: 11px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 2px;
+    }
+    .flow-text { font-size: 13px; color: #444; }
+    .flow-text strong { color: var(--text); }
+
+    /* ── Notice ── */
+    .notice {
+      border-left: 3px solid var(--accent);
+      background: var(--accent-light);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 16px; margin: 16px 0;
+      font-size: 13px; color: #335;
+    }
+    .notice.warn { border-left-color: #e67e22; background: #fef9f0; color: #7a4500; }
+    .notice.ok   { border-left-color: #27ae60; background: #f0faf5; color: #1a5c38; }
+    .notice.err  { border-left-color: #e74c3c; background: #fef0f0; color: #7a1a1a; }
+
+    /* ── Pipeline ── */
+    .pipeline { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin: 16px 0; }
+    .pipeline-step { display: flex; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #eee; }
+    .pipeline-step:last-child { border-bottom: none; }
+    .pipeline-step:nth-child(odd)  { background: var(--surface); }
+    .pipeline-step:nth-child(even) { background: #f8f8f8; }
+    .pipeline-num {
+      width: 28px; height: 28px; border-radius: 50%; background: var(--accent);
+      color: #fff; font-size: 13px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 2px;
+    }
+    .pipeline-content { flex: 1; min-width: 0; }
+    .pipeline-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+    .pipeline-desc { font-size: 13px; color: #555; margin-bottom: 6px; }
+
+    /* ── Data Flow Diagram ── */
+    .dataflow {
+      display: flex; align-items: center; justify-content: center;
+      gap: 0; margin: 20px 0; flex-wrap: wrap;
+    }
+    .df-node {
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius); padding: 14px 18px;
+      text-align: center; min-width: 110px;
+    }
+    .df-node.ble  { border-color: #2d6be4; background: #eef3fd; }
+    .df-node.ant  { border-color: #27ae60; background: #f0faf5; }
+    .df-node.uart { border-color: #e67e22; background: #fef9f0; }
+    .df-node.mcu  { border-color: #8e44ad; background: #f8f0fe; background: #f3e8ff; border-width: 2px; }
+    .df-title { font-size: 12px; font-weight: 700; letter-spacing: .3px; }
+    .df-sub   { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .df-arrow {
+      font-size: 20px; color: #bbb; padding: 0 6px;
+      display: flex; align-items: center; flex-direction: column; gap: 2px;
+    }
+    .df-arrow span { font-size: 10px; color: var(--muted); white-space: nowrap; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center; padding: 32px;
+      font-size: 12px; color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 700px) {
+      .content { padding: 28px 18px 60px; }
+      h1 { font-size: 24px; }
+      .stats { gap: 10px; }
+      .card-grid { grid-template-columns: 1fr 1fr; }
+      .arch-layer { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .dataflow { flex-direction: column; }
+      .df-arrow { transform: rotate(90deg); }
+    }
+  </style>
+</head>
+<body class="menu-open">
+
+<!-- Header -->
+<header id="header">
+  <button id="menu-toggle" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div id="brand">nRF52832 BLE/ANT 中继器 <sup>Nordic nRF5 SDK v17.1.0 · S312 SoftDevice</sup></div>
+  <div class="header-meta">
+    <span class="badge">SDK v17.1.0</span>
+    <span class="badge">BLE + ANT+</span>
+  </div>
+</header>
+
+<!-- Sidebar -->
+<nav id="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">概览</div>
+    <a class="sidebar-link active" href="#overview">项目概览</a>
+    <a class="sidebar-link" href="#stats">项目统计</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">系统架构</div>
+    <a class="sidebar-link" href="#architecture">分层架构设计</a>
+    <a class="sidebar-link" href="#dataflow">数据流向图</a>
+    <a class="sidebar-link" href="#init">初始化流程</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">无线协议</div>
+    <div class="sidebar-expandable open" id="exp-ble">
+      <div class="sidebar-expand-row">
+        <a class="sidebar-link" href="#ble">BLE 蓝牙模块</a>
+        <button class="sidebar-chevron" onclick="toggleExpand('exp-ble')">›</button>
+      </div>
+      <div class="sidebar-submenu">
+        <a class="sidebar-sublink" href="#ble-services">GATT 服务</a>
+        <a class="sidebar-sublink" href="#ble-uart">自定义 UART 服务</a>
+        <a class="sidebar-sublink" href="#ble-adv">广播配置</a>
+      </div>
+    </div>
+    <a class="sidebar-link" href="#ant">ANT+ 模块</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">硬件接口</div>
+    <a class="sidebar-link" href="#uart">UART 串口</a>
+    <a class="sidebar-link" href="#pins">引脚配置</a>
+    <a class="sidebar-link" href="#buffer">缓冲区设计</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">核心逻辑</div>
+    <a class="sidebar-link" href="#relay">双向数据转发</a>
+    <a class="sidebar-link" href="#mainloop">主循环机制</a>
+    <a class="sidebar-link" href="#power">电源管理</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">参考</div>
+    <a class="sidebar-link" href="#files">文件结构</a>
+    <a class="sidebar-link" href="#build">构建配置</a>
+    <a class="sidebar-link" href="#git">Git 修复历史</a>
+  </div>
+</nav>
+
+<!-- Main Content -->
+<main id="main">
+<div class="content">
+
+  <!-- ── Overview ── -->
+  <section id="overview">
+    <div class="section-label">Project Overview</div>
+    <h1>nRF52832 BLE / ANT+ 双协议中继器</h1>
+    <p class="hero-desc">
+      本项目是基于 Nordic Semiconductor nRF52832 芯片的嵌入式固件，实现了
+      BLE（蓝牙低功耗）、ANT+ 无线协议与 UART 串口的三路双向数据中继网关。
+      核心应用场景为将 ANT+ 心率传感器数据桥接至 BLE 中央设备，同时提供
+      自定义 BLE UART 服务，实现串口与蓝牙的透明双向转发。
+    </p>
+    <div class="hero-tags">
+      <span class="tag">nRF52832 ARM Cortex-M4F</span>
+      <span class="tag">BLE 5.x + ANT+</span>
+      <span class="tag">S312 双协议 SoftDevice</span>
+      <span class="tag">ANT HRM 接收</span>
+      <span class="tag">BLE UART 透传</span>
+      <span class="tag">心率服务 HRS</span>
+      <span class="tag">UART 115200 bps</span>
+      <span class="tag">事件驱动架构</span>
+      <span class="tag">GCC ARM 工具链</span>
+    </div>
+    <div class="notice">
+      芯片: nRF52832-XXAA &nbsp;·&nbsp; SoftDevice: S312 v6.1.x &nbsp;·&nbsp;
+      SDK: nRF5 SDK v17.1.0 &nbsp;·&nbsp; Flash: 512 KB &nbsp;·&nbsp; RAM: 64 KB &nbsp;·&nbsp; CPU: 64 MHz
+    </div>
+  </section>
+
+  <!-- ── Stats ── -->
+  <section id="stats">
+    <h2>项目统计</h2>
+    <div class="stats">
+      <div class="stat"><div class="stat-num">1333</div><div class="stat-label">main.c 代码行数</div></div>
+      <div class="stat"><div class="stat-num">3</div><div class="stat-label">无线协议</div></div>
+      <div class="stat"><div class="stat-num">3</div><div class="stat-label">BLE GATT 服务</div></div>
+      <div class="stat"><div class="stat-num">244</div><div class="stat-label">最大帧字节数</div></div>
+      <div class="stat"><div class="stat-num">733</div><div class="stat-label">软件环形缓冲区 (B)</div></div>
+      <div class="stat"><div class="stat-num">10</div><div class="stat-label">帧超时 (ms)</div></div>
+    </div>
+    <div class="notice ok">
+      项目代码集中于单一文件 <code>user/main.c</code>（1333 行），涵盖 BLE 服务定义、ANT 事件处理、UART 驱动及主循环逻辑，结构紧凑，适合学习理解 nRF5 SDK 开发模式。
+    </div>
+  </section>
+
+  <!-- ── Architecture ── -->
+  <section id="architecture">
+    <h2>分层架构设计</h2>
+    <p>项目采用 Nordic 推荐的 5 层软件架构，各层职责分离，借助 SoftDevice 实现 BLE/ANT 与应用代码的隔离：</p>
+    <div class="arch">
+      <div class="arch-layer l1">
+        <div class="arch-name">应用逻辑层</div>
+        <div class="arch-items">
+          <span class="arch-chip">main.c 主循环</span>
+          <span class="arch-chip">UART 帧处理</span>
+          <span class="arch-chip">BLE 数据转发</span>
+          <span class="arch-chip">ANT HRM 桥接</span>
+          <span class="arch-chip">电源管理</span>
+        </div>
+      </div>
+      <div class="arch-layer l2">
+        <div class="arch-name">BLE 服务层</div>
+        <div class="arch-items">
+          <span class="arch-chip">Heart Rate Service (HRS)</span>
+          <span class="arch-chip">Device Info Service (DIS)</span>
+          <span class="arch-chip">Custom UART Service</span>
+          <span class="arch-chip">Peer Manager</span>
+          <span class="arch-chip">Connection Params</span>
+        </div>
+      </div>
+      <div class="arch-layer l3">
+        <div class="arch-name">ANT 协议层</div>
+        <div class="arch-items">
+          <span class="arch-chip">ANT HRM Profile (RX)</span>
+          <span class="arch-chip">ANT Channel 0</span>
+          <span class="arch-chip">ANT Key Manager</span>
+          <span class="arch-chip">HRM Page 0/4 解析</span>
+        </div>
+      </div>
+      <div class="arch-layer l4">
+        <div class="arch-name">SoftDevice 层</div>
+        <div class="arch-items">
+          <span class="arch-chip">S312 v6.1.x</span>
+          <span class="arch-chip">BLE 5.x 协议栈</span>
+          <span class="arch-chip">ANT+ 协议栈</span>
+          <span class="arch-chip">SD_BLE 事件分发</span>
+          <span class="arch-chip">SD_ANT 事件分发</span>
+        </div>
+      </div>
+      <div class="arch-layer l5">
+        <div class="arch-name">硬件抽象层</div>
+        <div class="arch-items">
+          <span class="arch-chip">nRFx HAL</span>
+          <span class="arch-chip">UART 驱动</span>
+          <span class="arch-chip">BSP 板级支持</span>
+          <span class="arch-chip">App Timer</span>
+          <span class="arch-chip">FDS Flash 存储</span>
+          <span class="arch-chip">SEGGER RTT 调试</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Dataflow ── -->
+  <section id="dataflow">
+    <h2>数据流向图</h2>
+    <p>系统实现三路信号的双向互联，nRF52832 作为中央枢纽协调所有数据路由：</p>
+
+    <div class="dataflow">
+      <div class="df-node ant">
+        <div class="df-title">ANT+ 传感器</div>
+        <div class="df-sub">心率带 / HRM 设备<br>Channel 0 · 4 Hz</div>
+      </div>
+      <div class="df-arrow">
+        <span>ANT HRM 广播</span>
+        ›
+        <span>单向接收</span>
+      </div>
+      <div class="df-node mcu">
+        <div class="df-title">nRF52832</div>
+        <div class="df-sub">S312 SoftDevice<br>BLE + ANT 双栈</div>
+      </div>
+      <div class="df-arrow">
+        ‹›
+        <span>BLE HRS 通知</span>
+        <span>BLE UART 透传</span>
+      </div>
+      <div class="df-node ble">
+        <div class="df-title">BLE 中央设备</div>
+        <div class="df-sub">手机 / 网关<br>"Nordic_HRM"</div>
+      </div>
+    </div>
+
+    <div class="dataflow" style="margin-top:0;">
+      <div style="width:110px;"></div>
+      <div class="df-arrow" style="flex-direction:column;">
+        ‹›
+        <span>115200 bps</span>
+        <span>双向透传</span>
+      </div>
+      <div class="df-node uart" style="margin: 0 auto;">
+        <div class="df-title">UART 串口</div>
+        <div class="df-sub">TX: P0.26 · RX: P0.25<br>帧超时 10 ms</div>
+      </div>
+    </div>
+
+    <div class="notice">
+      <strong>三路数据路由：</strong>
+      ANT+ → BLE（心率数据单向上报）；
+      UART → BLE（串口数据透传至手机）；
+      BLE → UART（手机指令下发至串口设备）。
+    </div>
+
+    <h3>BLE → UART 转发路径</h3>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>BLE 中央写入</strong> — 手机 App 写入自定义 UART RX 特征值（UUID: 0xFFF1）</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>BLE 事件回调</strong> — <code>ble_evt_handler()</code> 捕获 <code>BLE_GATTS_EVT_WRITE</code> 事件</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>UART 发送</strong> — 调用 <code>app_uart_put()</code> 逐字节写入 UART TX 队列</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>串口输出</strong> — UART 硬件以 115200 bps 将数据发送至外部串口设备</div>
+      </div>
+    </div>
+
+    <h3>UART → BLE 转发路径</h3>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>UART 中断接收</strong> — <code>uart_event_handler()</code> 将字节存入 733 字节软件环形缓冲区</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>帧超时检测</strong> — 10 ms 无新数据时，App Timer 触发帧完成标志</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>主循环轮询</strong> — 主循环检测帧就绪，从缓冲区读取最多 244 字节</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>BLE 发送</strong> — 调用 <code>ble_uart_data_send()</code>，通过 TX 特征值通知发送至中央设备</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">5</div>
+        <div class="flow-text"><strong>回显确认</strong> — 数据同时回显至 UART 输出，便于调试确认</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Init ── -->
+  <section id="init">
+    <h2>初始化流程</h2>
+    <p><code>main()</code> 函数按严格顺序执行 10 步初始化，确保硬件、协议栈、服务依次就绪：</p>
+    <div class="pipeline">
+      <div class="pipeline-step">
+        <div class="pipeline-num">1</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">timers_init()</div>
+          <div class="pipeline-desc">初始化 App Timer 模块，创建帧超时定时器（10 ms 单次触发），用于 UART 帧边界检测。</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">2</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">power_management_init()</div>
+          <div class="pipeline-desc">初始化 nRF 电源管理模块，配置低功耗休眠策略（WFE/WFI 指令），注册系统状态监控回调。</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">3</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">softdevice_setup()</div>
+          <div class="pipeline-desc">启用 S312 SoftDevice，配置 BLE + ANT 双栈 RAM 分配。调用 <code>nrf_sdh_enable_request()</code> 激活无线射频。</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">4</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">bsp_init()</div>
+          <div class="pipeline-desc">板级支持包初始化，配置 LED 指示灯和按键（PCA10040 开发板），注册 BSP 事件回调。</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">5</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">gap_params_init() + gatt_init()</div>
+          <div class="pipeline-desc">设置 GAP 参数：设备名称 "Nordic_HRM"，外观 Heart Rate Sensor (Belt)，连接间隔 50–100 ms，从机延迟 0。初始化 GATT 模块，请求 MTU 247 字节（有效载荷 244 B）。</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">6</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">services_init()</div>
+          <div class="pipeline-desc">依次注册三个 GATT 服务：心率服务 (HRS)、设备信息服务 (DIS)、自定义 UART 服务（UUID 0xFFF0）。</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">7</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">advertising_init() + conn_params_init()</div>
+          <div class="pipeline-desc">配置广播包（间隔 25 ms，包含 HRS + UART UUID），初始化连接参数协商模块（最大重试 3 次）。</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">8</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">uart_init()</div>
+          <div class="pipeline-desc">配置 UART：TX P0.26 / RX P0.25，波特率 115200，无流控，无奇偶校验。硬件 FIFO 512 B，软件环形缓冲区 733 B。</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">9</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">ant_hrm_rx_init()</div>
+          <div class="pipeline-desc">初始化 ANT Channel 0 为 HRM 接收模式，设备号/传输类型均为 0（通配符，接受任意 ANT+ 心率带）。</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">10</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">advertising_start()</div>
+          <div class="pipeline-desc">启动 BLE 广播，同时打开 ANT 信道，设备进入就绪状态，等待 BLE 中央设备连接和 ANT+ 传感器配对。</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── BLE ── -->
+  <section id="ble">
+    <h2>BLE 蓝牙模块</h2>
+
+    <h3 id="ble-services">GATT 服务配置</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>服务</th><th>UUID</th><th>特征值</th><th>功能</th></tr>
+        <tr>
+          <td><strong>Heart Rate Service</strong><br><span style="font-size:11px;color:#888">HRS</span></td>
+          <td class="td-code">0x180D</td>
+          <td>Heart Rate Measurement (0x2A37)<br>Body Sensor Location (0x2A38)</td>
+          <td>上报心率数值（BPM）及 R-R 间期；传感器位置：手指</td>
+        </tr>
+        <tr>
+          <td><strong>Device Info Service</strong><br><span style="font-size:11px;color:#888">DIS</span></td>
+          <td class="td-code">0x180A</td>
+          <td>Manufacturer Name<br>Model Number</td>
+          <td>设备厂商名称、型号信息（只读）</td>
+        </tr>
+        <tr>
+          <td><strong>Custom UART Service</strong><br><span style="font-size:11px;color:#888">自定义</span></td>
+          <td class="td-code">0xFFF0</td>
+          <td>TX Char (0xFFF2) — Notify<br>RX Char (0xFFF1) — Write</td>
+          <td>TX：设备 → 手机（UART 数据上报）；RX：手机 → 设备（指令下发）</td>
+        </tr>
+      </table>
+    </div>
+
+    <h3 id="ble-uart">自定义 UART 服务实现</h3>
+    <p>UART 服务使用 128-bit 基础 UUID 派生出三个特征值，代码直接向 GATT 服务器注册属性：</p>
+<pre><code>// main.c — 自定义 UART 服务结构体
+typedef struct {
+    uint16_t             service_handle;   // GATT 服务句柄
+    ble_gatts_char_handles_t tx_handles;   // TX 特征值（Notify）
+    ble_gatts_char_handles_t rx_handles;   // RX 特征值（Write）
+    uint8_t              uuid_type;        // UUID 类型（厂商自定义）
+} ble_uart_service_t;
+
+// 服务 UUID: 0xFFF0（16-bit 短 UUID）
+#define BLE_UUID_UART_SERVICE  0xFFF0
+#define BLE_UUID_UART_TX_CHAR  0xFFF2   // 通知特征（设备→手机）
+#define BLE_UUID_UART_RX_CHAR  0xFFF1   // 写入特征（手机→设备）
+
+// 发送函数：通过 BLE 通知将数据推送至中央设备
+static void ble_uart_data_send(uint8_t *p_data, uint16_t length) {
+    ble_gatts_hvx_params_t hvx_params;
+    memset(&hvx_params, 0, sizeof(hvx_params));
+    hvx_params.handle = m_uart_service.tx_handles.value_handle;
+    hvx_params.type   = BLE_GATT_HVX_NOTIFICATION;
+    hvx_params.p_len  = &length;
+    hvx_params.p_data = p_data;
+    sd_ble_gatts_hvx(m_conn_handle, &hvx_params);
+}</code></pre>
+
+    <h3 id="ble-adv">广播与连接参数</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>参数</th><th>值</th><th>说明</th></tr>
+        <tr><td>设备名称</td><td class="td-code">Nordic_HRM</td><td>广播包中的设备名称</td></tr>
+        <tr><td>广播间隔</td><td>40 units (25 ms)</td><td>快速广播，便于快速连接</td></tr>
+        <tr><td>外观标识</td><td>Heart Rate Sensor (Belt)</td><td>Appearance: 0x0341</td></tr>
+        <tr><td>最小连接间隔</td><td>50 ms</td><td>CONN_MIN_INTERVAL</td></tr>
+        <tr><td>最大连接间隔</td><td>100 ms</td><td>CONN_MAX_INTERVAL</td></tr>
+        <tr><td>从机延迟</td><td>0</td><td>无延迟，实时响应</td></tr>
+        <tr><td>MTU</td><td>247 字节</td><td>有效载荷 244 B（247 - 3 ATT 头）</td></tr>
+        <tr><td>绑定支持</td><td>可选（编译时配置）</td><td><code>BONDING_ENABLE</code> 宏控制</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── ANT ── -->
+  <section id="ant">
+    <h2>ANT+ 模块</h2>
+    <p>通过 S312 SoftDevice 的 ANT 协议栈接收 ANT+ 心率监测设备广播，解析心率数据后转发至 BLE HRS 服务：</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">📡</div>
+        <div class="card-title">信道配置</div>
+        <div class="card-desc">
+          Channel 0 · 接收模式<br>
+          设备号: 0（通配符）<br>
+          传输类型: 0（通配符）<br>
+          消息周期: 4 Hz (8070)
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">❤️</div>
+        <div class="card-title">HRM 数据页</div>
+        <div class="card-desc">
+          解析 Page 0–4<br>
+          Page 0: 计算心率 (BPM)<br>
+          Page 4: R-R 间期<br>
+          累计心跳计数
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔑</div>
+        <div class="card-title">ANT+ 密钥</div>
+        <div class="card-desc">
+          通过 ANT Key Manager<br>
+          加载标准 ANT+ 网络密钥<br>
+          兼容市售心率带设备
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔗</div>
+        <div class="card-title">BLE 桥接</div>
+        <div class="card-desc">
+          ANT HRM → BLE HRS<br>
+          调用 ble_hrs_heart_rate_measurement_send()<br>
+          BLE 通知推送给中央设备
+        </div>
+      </div>
+    </div>
+
+<pre><code>// main.c — ANT HRM 事件处理器
+void ant_hrm_evt_handler(ant_hrm_profile_t * p_profile,
+                         ant_hrm_evt_t        event)
+{
+    switch (event) {
+        case ANT_HRM_PAGE_0_UPDATED:
+            // 从 Page 0 获取心率值并通过 BLE HRS 上报
+            err_code = ble_hrs_heart_rate_measurement_send(
+                &m_hrs,
+                p_profile->page_0.computed_heart_rate);
+            break;
+
+        case ANT_HRM_PAGE_4_UPDATED:
+            // 从 Page 4 获取 R-R 间期（心跳间隔时间，单位 1/1024 s）
+            err_code = ble_hrs_rr_interval_add(
+                &m_hrs,
+                p_profile->page_4.beat_interval);
+            break;
+
+        default:
+            break;
+    }
+}</code></pre>
+    <div class="notice ok">
+      设备号和传输类型均设置为 0（通配符），可自动配对任意品牌的 ANT+ 心率带（Garmin、Polar、Wahoo 等），无需预先配置。
+    </div>
+  </section>
+
+  <!-- ── UART ── -->
+  <section id="uart">
+    <h2>UART 串口模块</h2>
+
+    <h3>硬件配置</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>参数</th><th>值</th><th>说明</th></tr>
+        <tr><td>TX 引脚</td><td class="td-code">P0.26</td><td>数据发送引脚（nRF52832 → 外部设备）</td></tr>
+        <tr><td>RX 引脚</td><td class="td-code">P0.25</td><td>数据接收引脚（外部设备 → nRF52832）</td></tr>
+        <tr><td>波特率</td><td>115200 bps</td><td>标准高速串口</td></tr>
+        <tr><td>数据位</td><td>8 bit</td><td>标准格式</td></tr>
+        <tr><td>停止位</td><td>1 bit</td><td>标准格式</td></tr>
+        <tr><td>奇偶校验</td><td>None</td><td>无校验</td></tr>
+        <tr><td>流控制</td><td>Disabled</td><td>无硬件流控（CTS/RTS 未使用）</td></tr>
+        <tr><td>硬件 RX 缓冲</td><td>512 字节</td><td>UART 硬件 FIFO</td></tr>
+        <tr><td>硬件 TX 缓冲</td><td>512 字节</td><td>UART 发送队列</td></tr>
+        <tr><td>软件环形缓冲</td><td>733 字节</td><td>应用层接收缓冲区</td></tr>
+        <tr><td>帧超时</td><td>10 ms</td><td>无新字节后触发帧完成</td></tr>
+      </table>
+    </div>
+
+<pre><code>// main.c — UART 初始化
+static void uart_init(void) {
+    const app_uart_comm_params_t comm_params = {
+        .rx_pin_no    = RX_PIN_NUMBER,     // P0.25
+        .tx_pin_no    = TX_PIN_NUMBER,     // P0.26
+        .rts_pin_no   = RTS_PIN_NUMBER,    // 未使用
+        .cts_pin_no   = CTS_PIN_NUMBER,    // 未使用
+        .flow_control = APP_UART_FLOW_CONTROL_DISABLED,
+        .use_parity   = false,
+        .baud_rate    = UART_BAUDRATE_BAUDRATE_Baud115200
+    };
+    APP_UART_FIFO_INIT(&comm_params,
+                       UART_RX_BUF_SIZE,   // 512 B 硬件 FIFO
+                       UART_TX_BUF_SIZE,   // 512 B 硬件 FIFO
+                       uart_event_handler,
+                       APP_IRQ_PRIORITY_LOWEST,
+                       err_code);
+}</code></pre>
+  </section>
+
+  <!-- ── Pins ── -->
+  <section id="pins">
+    <h2>引脚配置</h2>
+    <p>以 PCA10040（nRF52832 开发套件）为参考板，引脚分配如下：</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>引脚</th><th>功能</th><th>方向</th><th>说明</th></tr>
+        <tr><td class="td-code">P0.25</td><td>UART RX</td><td>输入</td><td>接收外部串口设备数据</td></tr>
+        <tr><td class="td-code">P0.26</td><td>UART TX</td><td>输出</td><td>向外部串口设备发送数据</td></tr>
+        <tr><td class="td-code">P0.13</td><td>LED 1</td><td>输出</td><td>BLE 广播状态指示（PCA10040）</td></tr>
+        <tr><td class="td-code">P0.14</td><td>LED 2</td><td>输出</td><td>BLE 连接状态指示</td></tr>
+        <tr><td class="td-code">P0.15</td><td>LED 3</td><td>输出</td><td>ANT 状态指示</td></tr>
+        <tr><td class="td-code">P0.16</td><td>LED 4</td><td>输出</td><td>错误状态指示</td></tr>
+        <tr><td class="td-code">P0.11</td><td>Button 1</td><td>输入</td><td>BSP 功能按键（上拉）</td></tr>
+        <tr><td class="td-code">RF</td><td>2.4 GHz 天线</td><td>双向</td><td>BLE + ANT+ 共用射频，SoftDevice 时分复用</td></tr>
+      </table>
+    </div>
+    <div class="notice warn">
+      nRF52832 的 BLE 和 ANT+ 共用同一个 2.4 GHz 射频模块，由 S312 SoftDevice 内部进行时分多路复用（TDMA），无需外部硬件支持双协议同时工作。
+    </div>
+  </section>
+
+  <!-- ── Buffer ── -->
+  <section id="buffer">
+    <h2>缓冲区设计</h2>
+    <p>为实现无阻塞的 UART-BLE 数据转发，项目采用三级缓冲策略：</p>
+
+    <div class="arch">
+      <div class="arch-layer l4">
+        <div class="arch-name">硬件 FIFO</div>
+        <div class="arch-items">
+          <span class="arch-chip">RX FIFO: 512 B</span>
+          <span class="arch-chip">TX FIFO: 512 B</span>
+          <span class="arch-chip">nRFx UART 驱动</span>
+          <span class="arch-chip">中断驱动</span>
+        </div>
+      </div>
+      <div class="arch-layer l3">
+        <div class="arch-name">软件环形缓冲</div>
+        <div class="arch-items">
+          <span class="arch-chip">733 字节</span>
+          <span class="arch-chip">ISR → 应用层</span>
+          <span class="arch-chip">uart_event_handler 写入</span>
+          <span class="arch-chip">主循环读取</span>
+        </div>
+      </div>
+      <div class="arch-layer l1">
+        <div class="arch-name">BLE 发送帧</div>
+        <div class="arch-items">
+          <span class="arch-chip">最大 244 字节/帧</span>
+          <span class="arch-chip">MTU 247 - 3 ATT 头</span>
+          <span class="arch-chip">每次循环最多 10 包</span>
+          <span class="arch-chip">sd_ble_gatts_hvx 发送</span>
+        </div>
+      </div>
+    </div>
+
+<pre><code>// main.c — 软件环形缓冲区（733 字节）及帧就绪标志
+#define UART_BUFFER_SIZE    733
+static uint8_t  m_uart_rx_buffer[UART_BUFFER_SIZE];
+static uint16_t m_uart_rx_head   = 0;
+static uint16_t m_uart_rx_tail   = 0;
+static bool     m_uart_frame_rdy = false;  // 帧就绪标志
+
+// 帧超时回调（10 ms App Timer）
+static void uart_timeout_handler(void * p_context) {
+    if (m_uart_rx_head != m_uart_rx_tail) {
+        m_uart_frame_rdy = true;   // 标记帧完成，主循环处理
+    }
+}
+
+// 主循环：处理就绪帧并分批发送 BLE 通知
+while (true) {
+    if (m_uart_frame_rdy) {
+        m_uart_frame_rdy = false;
+        uint8_t  pkt[244];
+        uint16_t len = 0;
+        uint8_t  pkt_cnt = 0;
+
+        while (ring_buf_read(pkt, &len, 244) && pkt_cnt < 10) {
+            ble_uart_data_send(pkt, len);  // 发送 BLE 通知
+            // 同时回显至 UART
+            for (uint16_t i = 0; i < len; i++) app_uart_put(pkt[i]);
+            pkt_cnt++;
+        }
+    }
+    nrf_pwr_mgmt_run();  // 无事件时进入低功耗休眠
+}</code></pre>
+  </section>
+
+  <!-- ── Relay ── -->
+  <section id="relay">
+    <h2>双向数据转发机制</h2>
+
+    <h3>关键设计决策</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">⏱</div>
+        <div class="card-title">帧超时检测</div>
+        <div class="card-desc">
+          10 ms 无新字节即认为一帧完成，适合大多数串口协议帧间隔，无需预知帧格式或长度字段。
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔄</div>
+        <div class="card-title">非阻塞设计</div>
+        <div class="card-desc">
+          每次主循环最多处理 10 包（2440 B），防止单次 BLE 发送占用过长时间，保持系统响应性。
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📦</div>
+        <div class="card-title">MTU 分片</div>
+        <div class="card-desc">
+          BLE MTU 247 B，有效载荷 244 B。超过 244 B 的 UART 帧自动分片为多包 BLE 通知发送。
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔁</div>
+        <div class="card-title">UART 回显</div>
+        <div class="card-desc">
+          BLE 发送的数据同时回显至 UART，便于调试确认数据完整性，也可用于环路测试。
+        </div>
+      </div>
+    </div>
+
+    <h3>BLE 事件处理器核心逻辑</h3>
+<pre><code>// main.c — BLE 事件分发（简化）
+static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context) {
+    switch (p_ble_evt->header.evt_id) {
+
+        case BLE_GAP_EVT_CONNECTED:
+            m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
+            // BSP LED 指示连接状态
+            bsp_indication_set(BSP_INDICATE_CONNECTED);
+            break;
+
+        case BLE_GAP_EVT_DISCONNECTED:
+            m_conn_handle = BLE_CONN_HANDLE_INVALID;
+            // 重新启动广播，等待下次连接
+            advertising_start();
+            break;
+
+        case BLE_GATTS_EVT_WRITE:
+            // 手机写入 UART RX 特征值 → 转发至串口
+            if (p_ble_evt->evt.gatts_evt.params.write.handle ==
+                m_uart_service.rx_handles.value_handle) {
+                uint8_t  *data = p_ble_evt->evt.gatts_evt.params.write.data;
+                uint16_t  len  = p_ble_evt->evt.gatts_evt.params.write.len;
+                for (uint16_t i = 0; i < len; i++) {
+                    app_uart_put(data[i]);   // 逐字节写入 UART TX FIFO
+                }
+            }
+            break;
+
+        default:
+            break;
+    }
+}</code></pre>
+  </section>
+
+  <!-- ── Main Loop ── -->
+  <section id="mainloop">
+    <h2>主循环机制</h2>
+    <p>程序采用裸机（无 RTOS）事件驱动架构，主循环简洁，所有处理均通过中断/回调驱动：</p>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>检查 UART 帧就绪标志</strong> — 若 <code>m_uart_frame_rdy == true</code>，进入 UART→BLE 转发流程</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>读取环形缓冲区</strong> — 取出最多 244 字节，构成一个 BLE 发送包</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>BLE 通知发送</strong> — 若 BLE 已连接且 CCCD 使能，通过 <code>sd_ble_gatts_hvx()</code> 发送通知</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>UART 回显</strong> — 将同一数据包通过 <code>app_uart_put()</code> 回写至 UART 输出</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">5</div>
+        <div class="flow-text"><strong>循环限流</strong> — 每次主循环最多发送 10 包，超出则等待下次循环继续</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">6</div>
+        <div class="flow-text"><strong>电源管理</strong> — 调用 <code>nrf_pwr_mgmt_run()</code>，无事件则 CPU 进入 WFE 低功耗等待</div>
+      </div>
+    </div>
+    <div class="notice">
+      SoftDevice 事件（BLE / ANT）通过中断触发回调，UART 事件通过 ISR 写入环形缓冲区，主循环仅处理 UART→BLE 转发的批量数据路径，保持极低的 CPU 占用。
+    </div>
+  </section>
+
+  <!-- ── Power ── -->
+  <section id="power">
+    <h2>电源管理</h2>
+
+    <h3>低功耗策略</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>机制</th><th>实现</th><th>说明</th></tr>
+        <tr><td>CPU 空闲休眠</td><td class="td-code">nrf_pwr_mgmt_run()</td><td>主循环空闲时执行 WFE 指令，等待中断唤醒</td></tr>
+        <tr><td>系统状态监控</td><td>30 秒周期定时打印</td><td>通过 RTT/UART 输出 BLE 连接状态，便于调试</td></tr>
+        <tr><td>BLE 长时断连保护</td><td>超时重启广播</td><td>修复长期未连接导致的系统挂死问题（最新提交）</td></tr>
+        <tr><td>ANT 信道管理</td><td>断连后重新打开</td><td>BLE 断连后 ANT 信道自动重启，保持心率接收</td></tr>
+        <tr><td>连接间隔优化</td><td>50–100 ms</td><td>平衡延迟与功耗，避免过于频繁的 BLE 连接事件</td></tr>
+      </table>
+    </div>
+
+<pre><code>// main.c — 超时保护逻辑（修复长时间不连接死机 BUG）
+// 旧代码（有问题）：长时间未连接直接关机，导致死机
+// sd_power_system_off();
+
+// 新代码（修复后）：超时后重新广播并重启 ANT 信道
+static void connection_timeout_handler(void * p_context) {
+    if (m_conn_handle == BLE_CONN_HANDLE_INVALID) {
+        // 重新启动 BLE 广播
+        advertising_start();
+        // 重新打开 ANT 信道
+        uint32_t err_code = ant_hrm_rx_open(&m_ant_hrm);
+        APP_ERROR_CHECK(err_code);
+    }
+}</code></pre>
+  </section>
+
+  <!-- ── Files ── -->
+  <section id="files">
+    <h2>文件结构与说明</h2>
+
+    <h3>项目源文件</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>文件路径</th><th>行数</th><th>功能描述</th></tr>
+        <tr><td class="td-code">user/main.c</td><td>1333</td><td>主应用文件：BLE/ANT 初始化、UART 驱动、数据转发逻辑、主循环</td></tr>
+        <tr><td class="td-code">user/pca10040/s312/config/sdk_config.h</td><td>—</td><td>SDK 功能模块开关（BLE、ANT、日志、FDS 等）</td></tr>
+        <tr><td class="td-code">user/pca10040/s312/armgcc/Makefile</td><td>—</td><td>GCC 构建脚本，目标 nrf52832_xxaa，链接 S312 SoftDevice</td></tr>
+        <tr><td class="td-code">user/pca10040/s312/ses/*.emProject</td><td>—</td><td>SEGGER Embedded Studio 工程文件</td></tr>
+      </table>
+    </div>
+
+    <h3>SDK 关键组件目录</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>目录</th><th>内容</th></tr>
+        <tr><td class="td-code">components/ble/ble_services/ble_hrs/</td><td>Heart Rate Service 标准实现</td></tr>
+        <tr><td class="td-code">components/ble/ble_services/ble_dis/</td><td>Device Information Service</td></tr>
+        <tr><td class="td-code">components/ble/ble_advertising/</td><td>广播管理模块</td></tr>
+        <tr><td class="td-code">components/ble/peer_manager/</td><td>BLE 绑定/配对管理</td></tr>
+        <tr><td class="td-code">components/ant/ant_profiles/ant_hrm/</td><td>ANT+ HRM 配置文件（RX/TX 双模）</td></tr>
+        <tr><td class="td-code">components/libraries/uart/</td><td>UART FIFO 驱动库</td></tr>
+        <tr><td class="td-code">components/libraries/timer/</td><td>App Timer 软件定时器</td></tr>
+        <tr><td class="td-code">components/libraries/fds/</td><td>Flash Data Storage（绑定信息持久化）</td></tr>
+        <tr><td class="td-code">components/softdevice/s312/</td><td>S312 SoftDevice 二进制（BLE + ANT 双协议）</td></tr>
+        <tr><td class="td-code">modules/nrfx/</td><td>nRFx 外设驱动 HAL 层</td></tr>
+        <tr><td class="td-code">external/segger_rtt/</td><td>SEGGER RTT 实时调试输出</td></tr>
+        <tr><td class="td-code">external/mbedtls/</td><td>Mbed TLS（BLE 配对加密支持）</td></tr>
+      </table>
+    </div>
+
+    <h3>支持的开发板</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>目录</th><th>硬件</th><th>SoftDevice</th><th>说明</th></tr>
+        <tr><td class="td-code">user/pca10040/s312/</td><td>PCA10040 (nRF52832 DK)</td><td>S312</td><td>主要目标板，BLE + ANT 双协议</td></tr>
+        <tr><td class="td-code">user/pca10040/s332/</td><td>PCA10040 (nRF52832 DK)</td><td>S332</td><td>增强型双协议变体</td></tr>
+        <tr><td class="td-code">user/pca10040e/</td><td>PCA10040E</td><td>—</td><td>nRF52810 仿真模式</td></tr>
+        <tr><td class="td-code">user/pca10056/</td><td>PCA10056 (nRF52840 DK)</td><td>S340</td><td>升级至 nRF52840 扩展板</td></tr>
+        <tr><td class="td-code">user/d52/</td><td>D52 自定义板</td><td>S312/S332</td><td>量产定制硬件版本</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Build ── -->
+  <section id="build">
+    <h2>构建配置</h2>
+
+    <h3>工具链与编译</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>工具链</th><th>支持状态</th><th>说明</th></tr>
+        <tr><td>GCC ARM Embedded</td><td>✓ 主要</td><td>通过 Makefile 构建，跨平台支持</td></tr>
+        <tr><td>SEGGER Embedded Studio</td><td>✓ 支持</td><td>.emProject 工程文件，图形化调试</td></tr>
+        <tr><td>IAR Workbench</td><td>✓ 支持</td><td>商业工具链，高优化级别</td></tr>
+        <tr><td>Keil MDK</td><td>✓ 支持</td><td>ARM 官方工具链</td></tr>
+      </table>
+    </div>
+
+    <h3>GCC Makefile 关键配置</h3>
+<pre><code># user/pca10040/s312/armgcc/Makefile
+
+PROJECT_NAME     := ble_ant_app_hrm_pca10040_s312
+TARGETS          := nrf52832_xxaa
+OUTPUT_DIRECTORY := _build
+
+SDK_ROOT  := ../../../../..
+PROJ_DIR  := ../../..
+
+# SoftDevice 头文件路径（S312 双协议栈）
+INC_FOLDERS += $(SDK_ROOT)/components/softdevice/s312/headers
+INC_FOLDERS += $(SDK_ROOT)/components/softdevice/s312/headers/nrf52
+
+# 编译标志
+CFLAGS += -DBOARD_PCA10040
+CFLAGS += -DCONFIG_GPIO_AS_PINRESET
+CFLAGS += -DFLOAT_ABI_HARD
+CFLAGS += -DNRF52832_XXAA
+CFLAGS += -DS312
+CFLAGS += -mcpu=cortex-m4
+CFLAGS += -mfloat-abi=hard
+CFLAGS += -mfpu=fpv4-sp-d16
+
+# 链接 S312 SoftDevice 十六进制文件
+SOFTDEVICE_HEX := $(SDK_ROOT)/components/softdevice/s312/hex/s312_nrf52_6.1.x_softdevice.hex</code></pre>
+
+    <h3>内存布局（nRF52832-XXAA + S312）</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>区域</th><th>起始地址</th><th>大小</th><th>用途</th></tr>
+        <tr><td>SoftDevice Flash</td><td class="td-code">0x00000000</td><td>~152 KB</td><td>S312 SoftDevice 代码（只读，烧录时合并）</td></tr>
+        <tr><td>应用 Flash</td><td class="td-code">0x00026000</td><td>~360 KB</td><td>用户应用代码及常量数据</td></tr>
+        <tr><td>FDS / NVM</td><td class="td-code">Flash 末尾</td><td>~8 KB</td><td>绑定配置持久化存储</td></tr>
+        <tr><td>SoftDevice RAM</td><td class="td-code">0x20000000</td><td>~6 KB</td><td>SoftDevice 运行时数据</td></tr>
+        <tr><td>应用 RAM</td><td class="td-code">0x20001800</td><td>~58 KB</td><td>用户代码栈、堆及全局变量</td></tr>
+      </table>
+    </div>
+    <div class="notice warn">
+      S312 SoftDevice 需要预留约 6 KB RAM（确切大小由 SoftDevice 版本决定）。修改 BLE 连接数或 ATT 表大小时，需同步调整 <code>sdk_config.h</code> 中的 RAM 起始地址，否则 SoftDevice 初始化会返回 <code>NRF_ERROR_NO_MEM</code>。
+    </div>
+  </section>
+
+  <!-- ── Git ── -->
+  <section id="git">
+    <h2>Git 提交与 BUG 修复历史</h2>
+    <p>仓库最近三次提交均为 BLE-UART 双向转发链路的稳定性修复：</p>
+
+    <div class="pipeline">
+      <div class="pipeline-step">
+        <div class="pipeline-num">1</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">d30dd05 — 修复长时间不连接蓝牙会死机BUG <span style="font-weight:400;color:#888">（最新）</span></div>
+          <div class="pipeline-desc">
+            <strong>问题：</strong>设备在 BLE 长时间未连接状态下调用 <code>sd_power_system_off()</code> 进入系统关机，
+            导致无法再次广播，表现为设备"死机"或无响应。<br>
+            <strong>修复：</strong>改为超时后重新调用 <code>advertising_start()</code> 并重启 ANT 信道，
+            保持设备持续可被发现，彻底解决长待机死机问题。
+          </div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">2</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">bb81dc7 — 修复ble与串口双向转发BUG</div>
+          <div class="pipeline-desc">
+            <strong>问题：</strong>BLE → UART 和 UART → BLE 两个方向的数据路径存在竞争条件，
+            导致部分数据丢失或乱序。<br>
+            <strong>修复：</strong>重构数据转发逻辑，确保 BLE 写入事件的 UART 输出路径与
+            UART 接收缓冲区的 BLE 通知路径互不干扰，双向稳定工作。
+          </div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">3</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">a859f4a — ble转发串口有BUG <span style="font-weight:400;color:#888">（初始修复）</span></div>
+          <div class="pipeline-desc">
+            <strong>问题：</strong>BLE 转发至 UART 的方向存在 Bug，发现并记录了问题。<br>
+            <strong>修复：</strong>初步修正了 BLE→UART 单方向的转发逻辑，作为后续完整修复的基础。
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notice ok">
+      三次提交形成完整的 Bug 发现 → 局部修复 → 全面修复的闭环。当前主分支（main）已解决全部已知的 BLE/UART 双向转发和长待机死机问题，系统运行稳定。
+    </div>
+
+    <h3>技术栈总览</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>层级</th><th>技术</th></tr>
+        <tr><td>微控制器</td><td>Nordic nRF52832-XXAA（ARM Cortex-M4F @ 64 MHz，512 KB Flash，64 KB RAM）</td></tr>
+        <tr><td>无线协议</td><td>BLE 5.x + ANT+ 2.4 GHz（S312 SoftDevice 时分复用）</td></tr>
+        <tr><td>SoftDevice</td><td>S312 v6.1.x（BLE + ANT 双协议二进制，约 152 KB）</td></tr>
+        <tr><td>操作系统</td><td>裸机（无 RTOS），事件驱动 + App Timer</td></tr>
+        <tr><td>SDK</td><td>nRF5 SDK v17.1.0（Nordic 官方，含 BLE/ANT 服务库）</td></tr>
+        <tr><td>驱动层</td><td>nRFx HAL（nRF52 系列统一外设驱动接口）</td></tr>
+        <tr><td>构建系统</td><td>GCC ARM Embedded + GNU Make（主），SES / IAR / Keil 可选</td></tr>
+        <tr><td>调试</td><td>SEGGER RTT（实时传输），UART 日志，J-Link 调试器</td></tr>
+        <tr><td>加密支持</td><td>Mbed TLS + micro-ECC（BLE 配对、LESC 加密）</td></tr>
+        <tr><td>Flash 存储</td><td>FDS（Flash Data Storage，绑定信息持久化）</td></tr>
+      </table>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  nRF52832 BLE/ANT+ 双协议中继器 &nbsp;·&nbsp; Nordic nRF5 SDK v17.1.0 &nbsp;·&nbsp;
+  S312 SoftDevice &nbsp;·&nbsp; user/main.c · 1333 行 &nbsp;·&nbsp; 2026
+</footer>
+</main>
+
+<script>
+  // ── Menu Toggle ──
+  const toggle = document.getElementById('menu-toggle');
+  toggle.addEventListener('click', () => {
+    document.body.classList.toggle('menu-open');
+  });
+
+  // ── Active link on scroll ──
+  const sections = document.querySelectorAll('section[id]');
+  const links    = document.querySelectorAll('.sidebar-link, .sidebar-sublink');
+
+  function updateActive() {
+    let current = '';
+    sections.forEach(sec => {
+      if (sec.getBoundingClientRect().top <= 80) current = sec.id;
+    });
+    links.forEach(a => {
+      const isActive = a.getAttribute('href') === '#' + current;
+      a.classList.toggle('active', isActive);
+      if (isActive) a.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+  }
+
+  document.getElementById('main').addEventListener('scroll', updateActive);
+  window.addEventListener('scroll', updateActive);
+  updateActive();
+
+  // ── Copy button ──
+  document.querySelectorAll('pre').forEach(pre => {
+    const btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.title = '复制代码';
+    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    btn.addEventListener('click', () => {
+      const code = pre.querySelector('code') ? pre.querySelector('code').innerText : pre.innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        btn.classList.add('copied');
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+        }, 2000);
+      });
+    });
+    pre.appendChild(btn);
+  });
+
+  // ── Smooth scroll ──
+  links.forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (window.innerWidth < 700) document.body.classList.remove('menu-open');
+    });
+  });
+
+  // ── Collapsible sidebar toggle ──
+  function toggleExpand(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('open');
+  }
+</script>
+</body>
+</html>

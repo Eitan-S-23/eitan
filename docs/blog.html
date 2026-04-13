@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Eitan's Lab · 嵌入式项目博客</title>
+  <style>
+    /* ── Reset & Variables ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #fafafa;
+      --white: #ffffff;
+      --text: #111111;
+      --muted: #8a8a8a;
+      --border: #efefef;
+      --tag-bg: #f2f2f2;
+      --accent: #111111;
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+              'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    /* ────────────────── NAV ────────────────── */
+    #nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 56px;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 28px;
+      gap: 0;
+      z-index: 200;
+    }
+
+    #nav-brand {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-right: auto;
+      white-space: nowrap;
+    }
+
+    #nav-brand span {
+      font-weight: 400;
+      color: var(--muted);
+      font-size: 13px;
+      margin-left: 6px;
+    }
+
+    #nav-links {
+      display: flex;
+      gap: 2px;
+      margin-right: 16px;
+    }
+
+    #nav-links a {
+      font-size: 13px;
+      color: var(--muted);
+      padding: 6px 12px;
+      border-radius: 20px;
+      transition: color 0.15s, background 0.15s;
+      cursor: pointer;
+    }
+
+    #nav-links a:hover { color: var(--text); background: var(--tag-bg); }
+    #nav-links a.active { color: var(--text); background: var(--tag-bg); font-weight: 500; }
+
+    /* Search */
+    #search-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    #search-input {
+      width: 180px;
+      height: 32px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 0 32px 0 14px;
+      font-size: 13px;
+      font-family: var(--font);
+      background: var(--tag-bg);
+      outline: none;
+      color: var(--text);
+      transition: width 0.25s, border-color 0.2s, background 0.2s;
+    }
+
+    #search-input::placeholder { color: #b0b0b0; }
+
+    #search-input:focus {
+      width: 260px;
+      border-color: #ccc;
+      background: var(--white);
+    }
+
+    #search-icon {
+      position: absolute;
+      right: 10px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    /* Mobile menu */
+    #mobile-btn {
+      display: none;
+      width: 36px; height: 36px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      margin-left: 12px;
+      padding: 0;
+    }
+
+    #mobile-btn span {
+      display: block;
+      width: 20px; height: 1.5px;
+      background: var(--text);
+      border-radius: 2px;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+
+    #mobile-drawer {
+      display: none;
+      position: fixed;
+      top: 56px; left: 0; right: 0;
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 28px 20px;
+      z-index: 199;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+    }
+
+    #mobile-drawer.open { display: block; }
+
+    #mobile-drawer a {
+      display: block;
+      padding: 11px 0;
+      font-size: 14px;
+      color: #555;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+
+    #mobile-drawer a:last-child { border-bottom: none; }
+    #mobile-drawer a:hover { color: var(--text); }
+
+    /* ────────────────── MAIN ────────────────── */
+    #main {
+      max-width: 1140px;
+      margin: 0 auto;
+      padding: 56px 28px 80px;
+    }
+
+    /* ────────────────── HERO ────────────────── */
+    #hero {
+      padding: 64px 0 52px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 52px;
+    }
+
+    #hero-eyebrow {
+      font-size: 11px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+
+    #hero h1 {
+      font-size: clamp(30px, 4.5vw, 48px);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.15;
+      margin-bottom: 18px;
+    }
+
+    #hero p {
+      font-size: 15px;
+      color: #555;
+      max-width: 540px;
+      line-height: 1.9;
+    }
+
+    #hero-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 24px;
+    }
+
+    #hero-chips span {
+      font-size: 12px;
+      padding: 4px 12px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--muted);
+    }
+
+    /* ────────────────── FILTER ────────────────── */
+    #filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 36px;
+    }
+
+    .fbtn {
+      font-size: 13px;
+      font-family: var(--font);
+      padding: 6px 16px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--white);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .fbtn:hover { border-color: #ccc; color: var(--text); }
+
+    .fbtn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    /* ────────────────── SECTION HEADER ────────────────── */
+    .sec-head {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .sec-head h2 {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+    }
+
+    #result-count {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    /* ────────────────── GRID ────────────────── */
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+      gap: 20px;
+    }
+
+    /* ────────────────── CARD ────────────────── */
+    .card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 36px rgba(0,0,0,0.07);
+    }
+
+    .card.hidden { display: none; }
+
+    /* accent strip */
+    .c-strip { height: 3px; }
+
+    .c-body {
+      padding: 20px 22px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* category + chip row */
+    .c-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .c-cat {
+      font-size: 10px;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .c-sep {
+      width: 3px; height: 3px;
+      background: #ddd;
+      border-radius: 50%;
+    }
+
+    .c-chip {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+
+    /* title */
+    .c-title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      line-height: 1.35;
+      margin-bottom: 10px;
+    }
+
+    /* description */
+    .c-desc {
+      font-size: 13px;
+      color: #555;
+      line-height: 1.75;
+      margin-bottom: 14px;
+    }
+
+    /* feature list */
+    .c-feats {
+      list-style: none;
+      margin-bottom: 14px;
+    }
+
+    .c-feats li {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 2.5px 0;
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+      line-height: 1.6;
+    }
+
+    .c-feats li::before {
+      content: '—';
+      flex-shrink: 0;
+      color: #d0d0d0;
+      font-size: 11px;
+      margin-top: 1px;
+    }
+
+    /* tags */
+    .c-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-bottom: 16px;
+      flex: 1;
+      align-content: flex-start;
+    }
+
+    .tag {
+      font-size: 11px;
+      font-family: var(--mono);
+      padding: 3px 8px;
+      background: var(--tag-bg);
+      border-radius: 4px;
+      color: #666;
+    }
+
+    /* footer buttons */
+    .c-foot {
+      display: flex;
+      gap: 8px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    .btn-doc {
+      flex: 1;
+      padding: 9px 14px;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      text-align: center;
+      transition: opacity 0.15s;
+      font-family: var(--font);
+    }
+
+    .btn-doc:hover { opacity: 0.75; }
+
+    .btn-gh {
+      width: 38px; height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+      flex-shrink: 0;
+    }
+
+    .btn-gh:hover { border-color: #aaa; color: var(--text); background: var(--tag-bg); }
+
+    /* ────────────────── NO RESULTS ────────────────── */
+    #no-results {
+      display: none;
+      text-align: center;
+      padding: 80px 0;
+      color: var(--muted);
+    }
+
+    #no-results .emoji { font-size: 40px; margin-bottom: 12px; }
+    #no-results p { font-size: 14px; }
+
+    /* ────────────────── FOOTER ────────────────── */
+    #site-footer {
+      margin-top: 80px;
+      padding: 32px 0 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    #site-footer a { color: var(--muted); text-decoration: underline; }
+    #site-footer a:hover { color: var(--text); }
+
+    /* ────────────────── RESPONSIVE ────────────────── */
+    @media (max-width: 800px) {
+      #nav-links { display: none; }
+      #mobile-btn { display: flex; }
+      #search-input { width: 120px; }
+      #search-input:focus { width: 160px; }
+      #grid { grid-template-columns: 1fr; }
+      #nav { padding: 0 16px; }
+      #main { padding: 56px 16px 60px; }
+      #hero { padding: 48px 0 40px; }
+      #site-footer { justify-content: center; text-align: center; }
+    }
+
+    /* Subtle card entrance */
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .card { animation: rise 0.35s ease both; }
+    .card:nth-child(2)  { animation-delay: 0.04s; }
+    .card:nth-child(3)  { animation-delay: 0.08s; }
+    .card:nth-child(4)  { animation-delay: 0.12s; }
+    .card:nth-child(5)  { animation-delay: 0.16s; }
+    .card:nth-child(6)  { animation-delay: 0.20s; }
+    .card:nth-child(7)  { animation-delay: 0.24s; }
+    .card:nth-child(8)  { animation-delay: 0.28s; }
+    .card:nth-child(9)  { animation-delay: 0.32s; }
+    .card:nth-child(10) { animation-delay: 0.36s; }
+    .card:nth-child(11) { animation-delay: 0.40s; }
+    .card:nth-child(12) { animation-delay: 0.44s; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     NAV
+══════════════════════════════════════ -->
+<nav id="nav">
+  <div id="nav-brand">Eitan's Lab <span>/ 嵌入式开发</span></div>
+
+  <div id="nav-links">
+    <a class="nav-link active" data-cat="all">全部</a>
+    <a class="nav-link" data-cat="wireless">无线通信</a>
+    <a class="nav-link" data-cat="embedded">嵌入式</a>
+    <a class="nav-link" data-cat="motor">电机控制</a>
+    <a class="nav-link" data-cat="measure">测量仪器</a>
+    <a class="nav-link" data-cat="navigation">导航追踪</a>
+    <a class="nav-link" data-cat="mobile">移动应用</a>
+  </div>
+
+  <div id="search-wrap">
+    <input id="search-input" type="text" placeholder="搜索项目、芯片、技术…" autocomplete="off" spellcheck="false" />
+    <svg id="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+    </svg>
+  </div>
+
+  <button id="mobile-btn" aria-label="菜单">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- mobile drawer -->
+<div id="mobile-drawer">
+  <a class="mob-link" data-cat="all">全部项目</a>
+  <a class="mob-link" data-cat="wireless">无线通信</a>
+  <a class="mob-link" data-cat="embedded">嵌入式系统</a>
+  <a class="mob-link" data-cat="motor">电机控制</a>
+  <a class="mob-link" data-cat="measure">测量仪器</a>
+  <a class="mob-link" data-cat="navigation">导航追踪</a>
+  <a class="mob-link" data-cat="mobile">移动应用</a>
+</div>
+
+<!-- ══════════════════════════════════════
+     MAIN
+══════════════════════════════════════ -->
+<main id="main">
+
+  <!-- HERO -->
+  <section id="hero">
+    <div id="hero-eyebrow">Embedded Systems · Wireless Protocol · IoT</div>
+    <h1>嵌入式开发<br>项目文档库</h1>
+    <p>专注于 BLE / ANT+ 无线通信、FOC 电机控制、OTA 差分升级、GPS 轨迹追踪等
+       嵌入式系统开发，涵盖从裸机驱动到 RTOS 应用的完整技术栈。</p>
+    <div id="hero-chips">
+      <span>BLE / ANT+</span>
+      <span>RTOS</span>
+      <span>FOC 矢量控制</span>
+      <span>OTA 固件升级</span>
+      <span>GPS 追踪</span>
+      <span>Flutter</span>
+      <span>LVGL v8</span>
+      <span>NimBLE</span>
+      <span>RT-Thread</span>
+    </div>
+  </section>
+
+  <!-- FILTER BAR -->
+  <div id="filter-bar">
+    <button class="fbtn active" data-cat="all">全部</button>
+    <button class="fbtn" data-cat="wireless">无线通信</button>
+    <button class="fbtn" data-cat="embedded">嵌入式系统</button>
+    <button class="fbtn" data-cat="motor">电机控制</button>
+    <button class="fbtn" data-cat="measure">测量仪器</button>
+    <button class="fbtn" data-cat="navigation">导航追踪</button>
+    <button class="fbtn" data-cat="mobile">移动应用</button>
+  </div>
+
+  <!-- SECTION HEADER -->
+  <div class="sec-head">
+    <h2 id="sec-title">全部项目</h2>
+    <span id="result-count">共 12 个</span>
+  </div>
+
+  <!-- ══════ GRID ══════ -->
+  <div id="grid">
+
+    <!-- ── 1. X-TRACK GPS 追踪 ── -->
+    <article class="card" data-cat="navigation"
+      data-search="xtrack x-track gps 追踪 导航 lvgl at32f435 imu 磁力计 地图 轨迹 运动 sd卡 usb">
+      <div class="c-strip" style="background:linear-gradient(90deg,#667eea,#764ba2)"></div>
+      <div class="c-body">
+        <div class="c-meta">
+          <span class="c-cat">导航追踪</span>
+          <span class="c-sep"></span>
+          <span class="c-chip">AT32F435RGT7</span>
+        </div>
+        <h3 class="c-title">X-TRACK · GPS 运动追踪设备</h3>
+        <p class="c-desc">
+          基于 AT32F435RGT7（Cortex-M4）的 GPS 运动追踪固件，深度集成 LVGL v8 图形框架，
+          实现实时矢量地图显示与轨迹记录回放。多传感器融合架构兼容嵌入式、
+          PC 模拟器、Linux 三平台运行，支持 SD 卡日志与 USB 大容量存储。
+        </p>
+        <ul class="c-feats">
+          <li>LVGL v8 实时矢量地图渲染与轨迹可视化</li>
+          <li>IMU + 磁力计多传感器融合导航</li>
+          <li>SDIO / SdFat 轨迹日志记录</li>
+          <li>USB MSC 大容量存储（免驱直接拷取数据）</li>
+          <li>蓝牙数据实时传输</li>
+          <li>三平台支持：嵌入式 / PC 模拟器 / Linux</li>
+          <li>C++ + Arduino API 开发，MIT 开源协议</li>
+        </ul>
+        <div class="c-tags">
+          <span class="tag">LVGL v8</span>
+          <span class="tag">GPS</span>
+          <span class="tag">IMU</span>
+          <span class="tag">BLE</span>
+          <span class="tag">SDIO</span>
+          <span class="tag">USB MSC</span>
+          <span class="tag">Cortex-M4</span>
+          <span class="tag">C++</span>
+        </div>
+        <div class="c-foot">
+          <a class="btn-doc" href="XTRACK.html" target="_blank">查看文档</a>
+          <a class="btn-gh" href="https://github.com/Eitan-S-23" target="_blank" title="开源地址 (GitHub)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </article>
+
+    <!-- ── 2. ANT+BLE 码表系统 ── -->
+    <article class="card" data-cat="navigation"
+      data-search="码表 自行车 ant ant+ ble 中继 at32f435 nrf52832 速度 节奏 踏频 功率 云端">
+      <div class="c-strip" style="background:linear-gradient(90deg,#f093fb,#f5576c)"></div>
+      <div class="c-body">
+        <div class="c-meta">
+          <span class="c-cat">导航追踪</span>
+          <span class="c-sep"></span>
+          <span class="c-chip">AT32F435 + nRF52832</span>
+        </div>
+        <h3 class="c-title">ANT+BLE 智能自行车码表系统</h3>
+        <p class="c-desc">
+          六层级联架构的完整智能骑行码表方案：ANT+ 传感器层 → nRF52832 双协议中继 →
+          AT32F435 主控数据处理与显示 → BLE 移动端连接 → 手机应用 → 云端服务器存储分析。
+          覆盖从底层传感器到云端的完整工程链路。
+        </p>
+        <ul class="c-feats">
+          <li>ANT+ 传感器层：踏频、速度、功率计实时采集</li>
+          <li>nRF52832 双协议中继节点（ANT+ ↔ BLE 协议桥接）</li>
+          <li>AT32F435 主控：多传感器数据融合与界面显示</li>
+          <li>BLE 5.x 移动端实时连接</li>
+          <li>手机 App 数据展示与控制</li>
+          <li>云端服务器历史存储与骑行数据分析</li>
+        </ul>
+        <div class="c-tags">
+          <span class="tag">ANT+</span>
+          <span class="tag">BLE 5.x</span>
+          <span class="tag">AT32F435</span>
+          <span class="tag">nRF52832</span>
+          <span class="tag">Cloud</span>
+          <span class="tag">多层架构</span>
+        </div>
+        <div class="c-foot">
+          <a class="btn-doc" href="码表总览.html" target="_blank">查看文档</a>
+          <a class="btn-gh" href="https://github.com/Eitan-S-23" target="_blank" title="开源地址 (GitHub)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </article>
+
+    <!-- ── 3. FOC AT32F415 ── -->
+    <article class="card" data-cat="motor"
+      data-search="foc 电机 at32f415 bldc 无刷 编码器 as5600 as5047p hall 电流 闭环 矢量控制 步进">
+      <div class="c-strip" style="background:linear-gradient(90deg,#4facfe,#00f2fe)"></div>
+      <div class="c-body">
+        <div class="c-meta">
+          <span class="c-cat">电机控制</span>
+          <span class="c-sep"></span>
+          <span class="c-chip">AT32F415CBT7</span>
+        </div>
+        <h3 class="c-title">FOC AT32F415 · 双路无刷电机驱动板</h3>
+        <p class="c-desc">
+          基于雅特力 AT32F415CBT7（Cortex-M4，150 MHz）的双路 FOC 驱动板固件库。
+          包含 25 个独立 Keil MDK-ARM 工程，循序渐进覆盖从开环速度控制
+          到 dq 轴电流闭环的完整学习路径，支持 BLDC 与步进电机，兼容四种编码器类型。
+        </p>
+        <ul class="c-feats">
+          <li>25 个独立工程，由浅入深的 FOC 学习路径</li>
+          <li>多编码器支持：AS5600（I²C）/ AS5047P（SPI）/ ABI 正交 / Hall 传感器</li>
+          <li>封装完整 FOC 库（foc_lib/），可复用</li>
+          <li>dq 轴电流闭环控制 + 在线电流检测</li>
+          <li>SimpleFOC Studio 实时调参与波形监控</li>
+          <li>蓝牙 UART 无线调试接口</li>
+          <li>128 KB Flash / 32 KB RAM，Keil MDK V5 C99</li>
+        </ul>
+        <div class="c-tags">
+          <span class="tag">FOC</span>
+          <span class="tag">BLDC</span>
+          <span class="tag">AS5600</span>
+          <span class="tag">DMA</span>
+          <span class="tag">ARM-GCC</span>
+          <span class="tag">Cortex-M4</span>
+          <span class="tag">Keil MDK</span>
+        </div>
+        <div class="c-foot">
+          <a class="btn-doc" href="AT32_ESC.html" target="_blank">查看文档</a>
+          <a class="btn-gh" href="https://github.com/Eitan-S-23" target="_blank" title="开源地址 (GitHub)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </article>
+
+    <!-- ── 4. BLE Monitor Flutter ── -->
+    <article class="card" data-cat="mobile"
+      data-search="ble monitor flutter 蓝牙 功耗 监控 android ios windows 电流 电压 功率 sqlite getx mqtt ota">
+      <div class="c-strip" style="background:linear-gradient(90deg,#43e97b,#38f9d7)"></div>
+      <div class="c-body">
+        <div class="c-meta">
+          <span class="c-cat">移动应用</span>
+          <span class="c-sep"></span>
+          <span class="c-chip">Flutter 3.0+</span>
+        </div>
+        <h3 class="c-title">BLE Monitor · Flutter 蓝牙功耗监控应用</h3>
+        <p class="c-desc">
+          基于 Flutter 构建的跨平台蓝牙低功耗监控应用，支持 Android、iOS、Windows
+          三端运行。实时扫描连接 BLE 设备，采集电流 / 电压 / 功率数据，
+          采用梯形积分法进行精确功耗计算，内置历史图表、阈值告警和 OTA 固件升级。
+        </p>
+        <ul class="c-feats">
+          <li>跨平台支持：Android / iOS / Windows</li>
+          <li>BLE 实时功耗监控（电流、电压、瓦时）</li>
+          <li>梯形积分法精确积分电量计算</li>
+          <li>SQLite 数据持久化 + 历史趋势图表</li>
+          <li>阈值越限推送告警</li>
+          <li>OTA 固件空中升级</li>
+          <li>MQTT 协议对接 + GPS 追踪能力预留</li>
+          <li>GetX 状态管理，架构清晰</li>
+        </ul>
+        <div class="c-tags">
+          <span class="tag">Flutter</span>
+          <span class="tag">Dart</span>
+          <span class="tag">GetX</span>
+          <span class="tag">SQLite</span>
+          <span class="tag">BLE</span>
+          <span class="tag">MQTT</span>
+          <span class="tag">OTA</span>
+        </div>
+        <div class="c-foot">
+          <a class="btn-doc" href="BLE_Monitor_Project.html" target="_blank">查看文档</a>
+          <a class="btn-gh" href="https://github.com/Eitan-S-23" target="_blank" title="开源地址 (GitHub)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </article>
+
+    <!-- ── 5. NRF52832 NimBLE ── -->
+    <article class="card" data-cat="wireless"
+      data-search="nrf52832 nimble ble 5.0 rt-thread rtos 蓝牙 协议栈 gap gatt sm l2cap 无softdevice">
+      <div class="c-strip" style="background:linear-gradient(90deg,#fa709a,#fee140)"></div>
+      <div class="c-body">
+        <div class="c-meta">
+          <span class="c-cat">无线通信</span>
+          <span class="c-sep"></span>
+          <span class="c-chip">nRF52832</span>
+        </div>
+        <h3 class="c-title">NRF52832-NimBLE · Apache BLE 5.0 完整协议栈</h3>
+        <p class="c-desc">
+          基于 Nordic nRF52832 集成 Apache NimBLE 完整 BLE 5.0 协议栈（Host + Controller），
+          搭配 RT-Thread 4.0 RTOS，完全不依赖 SoftDevice 固件。
+          完整实现 GAP、GATT、SM 安全配对，支持 Keil MDK5 和 GCC + SCons 双工具链构建。
+        </p>
+        <ul class="c-feats">
+          <li>纯软件实现 BLE 5.0 全协议栈，无 SoftDevice 依赖</li>
+          <li>完整协议层：GAP / GATT / SM / L2CAP</li>
+          <li>RT-Thread 4.0 多线程 RTOS 架构</li>
+          <li>FinSH Shell 交互式命令行调试</li>
+          <li>双构建系统：Keil MDK5 & GCC + SCons</li>
+          <li>心率传感器（blehr）完整示例</li>
+          <li>512 KB Flash / 64 KB RAM，Cortex-M4F</li>
+        </ul>
+        <div class="c-tags">
+          <span class="tag">NimBLE</span>
+          <span class="tag">BLE 5.0</span>
+          <span class="tag">RT-Thread</span>
+          <span class="tag">GAP</span>
+          <span class="tag">GATT</span>
+          <span class="tag">SM</span>
+          <span class="tag">Cortex-M4F</span>
+        </div>
+        <div class="c-foot">
+          <a class="btn-doc" href="nrf52832_nimble_docs.html" target="_blank">查看文档</a>
+          <a class="btn-gh" href="https://github.com/Eitan-S-23" target="_blank" title="开源地址 (GitHub)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </article>
+
+    <!-- ── 6. nRF52832 BLE/ANT+ 中继器 ── -->
+    <article class="card" data-cat="wireless"
+      data-search="nrf52832 ant ant+ ble 双协议 中继 心率 uart 串口 s312 softdevice hrs 透传">
+      <div class="c-strip" style="background:linear-gradient(90deg,#a18cd1,#fbc2eb)"></div>
+      <div class="c-body">
+        <div class="c-meta">
+          <span class="c-cat">无线通信</span>
+          <span class="c-sep"></span>
+          <span class="c-chip">nRF52832-XXAA</span>
+        </div>
+        <h3 class="c-title">nRF52832 · BLE/ANT+ 双协议中继网关</h3>
+        <p class="c-desc">
+          基于 Nordic nRF52832 的 BLE + ANT+ 双协议并发固件，实现三向双向数据中继：
+          ANT+ 心率传感器 → BLE 中心设备的协议桥接，
+          以及 UART 串口 → 蓝牙的透明透传。采用 S312 SoftDevice 实现双协议并发。
+        </p>
+        <ul class="c-feats">
+          <li>ANT+ 协议接收（HRM 心率传感器兼容）</li>
+          <li>BLE UART 透明透传自定义服务</li>
+          <li>Heart Rate Service（HRS）标准 BLE 服务</li>
+          <li>ANT+ → BLE 完整协议桥接</li>
+          <li>UART 115200 bps 串口透传</li>
+          <li>S312 v6.1.x SoftDevice 双协议并发</li>
+          <li>nRF5 SDK v17.1.0，事件驱动架构</li>
+        </ul>
+        <div class="c-tags">
+          <span class="tag">ANT+</span>
+          <span class="tag">BLE 5.x</span>
+          <span class="tag">S312</span>
+          <span class="tag">HRS</span>
+          <span class="tag">UART 透传</span>
+          <span class="tag">nRF5 SDK</span>
+        </div>
+        <div class="c-foot">
+          <a class="btn-doc" href="nRF52832_relay_doc.html" target="_blank">查看文档</a>
+          <a class="btn-gh" href="https://github.com/Eitan-S-23" target="_blank" title="开源地址 (GitHub)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </article>
+
+    <!-- ── 7. N32WB HID ── -->
+    <article class="card" data-cat="wireless"
+      data-search="n32wb hid 触摸屏 触控 键盘 手势 ble hogpd 多点 缩放 旋转 截图 边缘 滑动 windows android ios">
+      <div class="c-strip" style="background:linear-gradient(90deg,#f7971e,#ffd200)"></div>
+      <div class="c-body">
+        <div class="c-meta">
+          <span class="c-cat">无线通信</span>
+          <span class="c-sep"></span>
+          <span class="c-chip">N32WB03x</span>
+        </div>
+        <h3 class="c-title">N32WB_HID · 蓝牙 HID 多点触控与键盘设备</h3>
+        <p class="c-desc">
+          基于国民技术 N32WB03x 的 BLE HID 固件，模拟多点电容触摸屏（3 指触控）
+          和 HID 键盘，提供高阶手势 API（双指缩放、旋转、截图、边缘滑动），
+          通过标准 HOGPD 配置文件无缝兼容 Windows / Android / iOS。
+        </p>
+        <ul class="c-feats">
+          <li>3 点多点触摸屏精准模拟</li>
+          <li>HID 标准键盘全功能实现</li>
+          <li>高阶手势 API：双指缩放、旋转、截图、四向边缘滑动</li>
+          <li>Windows / Android / iOS 全平台免驱兼容</li>
+          <li>标准 BLE GATT HID 配置文件（HOGPD）</li>
+          <li>低功耗事件驱动架构，蓄电池供电可用</li>
+        </ul>
+        <div class="c-tags">
+          <span class="tag">BLE HID</span>
+          <span class="tag">HOGPD</span>
+          <span class="tag">Multi-touch</span>
+          <span class="tag">手势识别</span>
+          <span class="tag">N32WB03x</span>
+          <span class="tag">Keil MDK</span>
+        </div>
+        <div class="c-foot">
+          <a class="btn-doc" href="N32WB_HID_DOC.html" target="_blank">查看文档</a>
+          <a class="btn-gh" href="https://github.com/Eitan-S-23" target="_blank" title="开源地址 (GitHub)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </article>
+
+    <!-- ── 8. AT32F435 OTA 系统 ── -->
+    <article class="card" data-cat="embedded"
+      data-search="ota 差分 升级 at32f435 bsdiff lzma aes 加密 双分区 bootloader crc 回滚 w25q64 eeprom">
+      <div class="c-strip" style="background:linear-gradient(90deg,#30cfd0,#330867)"></div>
+      <div class="c-body">
+        <div class="c-meta">
+          <span class="c-cat">嵌入式系统</span>
+          <span class="c-sep"></span>
+          <span class="c-chip">AT32F435</span>
+        </div>
+        <h3 class="c-title">AT32F435 · 差分 OTA 固件升级系统（改进版）</h3>
+        <p class="c-desc">
+          面向 AT32F435（1024 KB Flash / 128 KB SRAM）的安全差分 OTA 升级系统，
+          三重保障：BSDIFF 差分极小化补丁体积 + LZMA 压缩 + AES-128-CTR 加密。
+          双分区架构配合 CRC32 校验和自动回滚，确保升级零砖。
+        </p>
+        <ul class="c-feats">
+          <li>BSDIFF 二进制差分算法，补丁体积极小化</li>
+          <li>LZMA 流式高效压缩，进一步降低传输开销</li>
+          <li>AES-128-CTR 对称加密，固件防篡改</li>
+          <li>CRC32 完整性全程校验</li>
+          <li>双分区（App1 / App2）+ Bootloader 三区架构</li>
+          <li>升级失败自动回滚，零砖机风险</li>
+          <li>W25Q64 外部 Flash 存储差分包 + AT24C02 参数记录</li>
+        </ul>
+        <div class="c-tags">
+          <span class="tag">OTA</span>
+          <span class="tag">BSDIFF</span>
+          <span class="tag">LZMA</span>
+          <span class="tag">AES-128-CTR</span>
+          <span class="tag">CRC32</span>
+          <span class="tag">Bootloader</span>
+          <span class="tag">双分区</span>
+        </div>
+        <div class="c-foot">
+          <a class="btn-doc" href="OTA.html" target="_blank">查看文档</a>
+          <a class="btn-gh" href="https://github.com/Eitan-S-23" target="_blank" title="开源地址 (GitHub)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </article>
+
+    <!-- ── 9. BSDIFF+LZMA+AES128 工具 ── -->
+    <article class="card" data-cat="embedded"
+      data-search="bsdiff lzma aes128 差分 压缩 加密 固件 stm32 esp32 nrf52 gd32 ota 工具 windows gui bspatch">
+      <div class="c-strip" style="background:linear-gradient(90deg,#434343,#000000)"></div>
+      <div class="c-body">
+        <div class="c-meta">
+          <span class="c-cat">嵌入式工具</span>
+          <span class="c-sep"></span>
+          <span class="c-chip">Multi-MCU</span>
+        </div>
+        <h3 class="c-title">BSDIFF + LZMA + AES128 · 固件差分压缩加密系统</h3>
+        <p class="c-desc">
+          通用固件 OTA 更新工具链，将工业级 BSDIFF 二进制差分、LZMA 高效压缩与
+          AES-128-CTR 加密三者整合为一体。适配 STM32、ESP32、nRF52、GD32
+          等主流 MCU，提供 Windows GUI 工具和嵌入式端 MCU 库，一键生成安全差分包。
+        </p>
+        <ul class="c-feats">
+          <li>BSDIFF 差分算法：bsdiff（编码）/ bspatch（解码）</li>
+          <li>LZMA 高压缩比，流式处理低内存占用</li>
+          <li>AES-128-CTR 对称加密 + CRC32 完整性验证</li>
+          <li>支持 STM32 / ESP32 / nRF52 / GD32 等主流平台</li>
+          <li>Windows GUI 桌面工具，可视化操作</li>
+          <li>嵌入式端 MCU 库，易于集成</li>
+        </ul>
+        <div class="c-tags">
+          <span class="tag">BSDIFF</span>
+          <span class="tag">LZMA</span>
+          <span class="tag">AES-128</span>
+          <span class="tag">STM32</span>
+          <span class="tag">ESP32</span>
+          <span class="tag">nRF52</span>
+          <span class="tag">Windows GUI</span>
+        </div>
+        <div class="c-foot">
+          <a class="btn-doc" href="bsdiff_lzma_aes128.html" target="_blank">查看文档</a>
+          <a class="btn-gh" href="https://github.com/Eitan-S-23" target="_blank" title="开源地址 (GitHub)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </article>
+
+    <!-- ── 10. WirelessPowermeter 完整版 ── -->
+    <article class="card" data-cat="measure"
+      data-search="功率计 无线 n32wb031 ina226 lcd 电流 电压 ble ibeacon scgui 波形 三量程 切换 功耗">
+      <div class="c-strip" style="background:linear-gradient(90deg,#f953c6,#b91d73)"></div>
+      <div class="c-body">
+        <div class="c-meta">
+          <span class="c-cat">测量仪器</span>
+          <span class="c-sep"></span>
+          <span class="c-chip">N32WB031</span>
+        </div>
+        <h3 class="c-title">WirelessPowermeter · 无线智能功率计（完整技术文档）</h3>
+        <p class="c-desc">
+          基于 N32WB031（ARM Cortex-M0 + BLE 5.1）的高精度多量程无线功率计，
+          集成 INA226 精密采样 IC，配备 160×128 彩色 LCD 双通道实时波形显示，
+          三量程自动切换精确覆盖 μA 到 A 级电流测量需求。
+        </p>
+        <ul class="c-feats">
+          <li>INA226 精密测量，±0.5% 精度</li>
+          <li>三量程自动切换：0~0.8 mA / 0~90 mA / 0~5 A</li>
+          <li>迟滞防震荡量程切换算法，测量稳定无抖动</li>
+          <li>SCGUI 框架双通道实时波形，50 ms 刷新率</li>
+          <li>BLE 5.1 iBeacon 无线数据广播</li>
+          <li>AT24C02 EEPROM 量程校准参数持久化</li>
+          <li>旋转拨盘操作界面 + 低功耗睡眠模式</li>
+        </ul>
+        <div class="c-tags">
+          <span class="tag">INA226</span>
+          <span class="tag">BLE 5.1</span>
+          <span class="tag">SCGUI</span>
+          <span class="tag">LCD 160×128</span>
+          <span class="tag">Cortex-M0</span>
+          <span class="tag">iBeacon</span>
+          <span class="tag">EEPROM</span>
+        </div>
+        <div class="c-foot">
+          <a class="btn-doc" href="Powermeter.html" target="_blank">查看文档</a>
+          <a class="btn-gh" href="https://github.com/Eitan-S-23" target="_blank" title="开源地址 (GitHub)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </article>
+
+    <!-- ── 12. AC7916 蓝牙声控设备 ── -->
+    <article class="card" data-cat="embedded"
+      data-search="ac7916 ac79nn 蓝牙声控设备 眼按摩 蓝牙 音乐 a2dp pwm 气泵 震动 热敷 热按 led rtos 多任务 sbc aac aptx">
+      <div class="c-strip" style="background:linear-gradient(90deg,#ee9ca7,#ffdde1)"></div>
+      <div class="c-body">
+        <div class="c-meta">
+          <span class="c-cat">嵌入式系统</span>
+          <span class="c-sep"></span>
+          <span class="c-chip">AC79NN 双核</span>
+        </div>
+        <h3 class="c-title">AC7916AB · 智能蓝牙声控设备固件</h3>
+        <p class="c-desc">
+          基于将猎 AC79NN 双核处理器（LLVM 编译）的智能蓝牙声控设备 Demo 项目，
+          采用四层分层软件架构，~3600 行核心代码，11 个功能模块，
+          14 个 RTOS 任务并发，深度整合蓝牙音乐、多模式按摩与复杂硬件驱动。
+        </p>
+        <ul class="c-feats">
+          <li>4 种按摩模式：舒适 / 热敷 / 震动 / 激情</li>
+          <li>蓝牙 5.2 A2DP 实时音乐（SBC / AAC / APTX / MP3 / M4A / PCM）</li>
+          <li>PWM 电机精控（1000 Hz，25% 占空比）</li>
+          <li>气泵系统（充气 / 放气双阀逻辑控制）</li>
+          <li>LED 四色模式指示（PA2-PA5）</li>
+          <li>14 个 RTOS 任务并发 + 四层分层软件架构</li>
+          <li>SPP 透传 + 4 MB Flash + 578 KB SDRAM</li>
+        </ul>
+        <div class="c-tags">
+          <span class="tag">AC79NN</span>
+          <span class="tag">BT 5.2 A2DP</span>
+          <span class="tag">PWM</span>
+          <span class="tag">RTOS</span>
+          <span class="tag">LLVM</span>
+          <span class="tag">SPP</span>
+          <span class="tag">双核</span>
+        </div>
+        <div class="c-foot">
+          <a class="btn-doc" href="AC7916.html" target="_blank">查看文档</a>
+          <a class="btn-gh" href="https://github.com/Eitan-S-23" target="_blank" title="开源地址 (GitHub)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </article>
+
+  </div><!-- /#grid -->
+
+  <!-- No results -->
+  <div id="no-results">
+    <div class="emoji">¯\_(ツ)_/¯</div>
+    <p>没有找到匹配的项目</p>
+  </div>
+
+  <!-- FOOTER -->
+  <footer id="site-footer">
+    <span>Eitan's Lab · 嵌入式开发文档库</span>
+    <span>
+      <a href="https://github.com/Eitan-S-23" target="_blank">GitHub</a>
+      &nbsp;·&nbsp;
+      <a href="index.html">简历</a>
+    </span>
+  </footer>
+
+</main><!-- /#main -->
+
+<script>
+(function () {
+  'use strict';
+
+  const cards      = Array.from(document.querySelectorAll('.card'));
+  const filterBtns = document.querySelectorAll('.fbtn');
+  const navLinks   = document.querySelectorAll('.nav-link');
+  const mobLinks   = document.querySelectorAll('.mob-link');
+  const searchEl   = document.getElementById('search-input');
+  const noResults  = document.getElementById('no-results');
+  const countEl    = document.getElementById('result-count');
+  const titleEl    = document.getElementById('sec-title');
+  const mobileBtn  = document.getElementById('mobile-btn');
+  const drawer     = document.getElementById('mobile-drawer');
+
+  const CAT_LABELS = {
+    all:       '全部项目',
+    wireless:  '无线通信',
+    embedded:  '嵌入式系统',
+    motor:     '电机控制',
+    measure:   '测量仪器',
+    navigation:'导航追踪',
+    mobile:    '移动应用'
+  };
+
+  let activeCat    = 'all';
+  let searchQuery  = '';
+
+  /* ── filter & search ── */
+  function refresh() {
+    const q = searchQuery.toLowerCase();
+    let n = 0;
+
+    cards.forEach(c => {
+      const catOk    = activeCat === 'all' || c.dataset.cat === activeCat;
+      const keywords = (c.dataset.search || '') + ' ' + c.textContent.toLowerCase();
+      const searchOk = !q || keywords.includes(q);
+
+      if (catOk && searchOk) {
+        c.classList.remove('hidden');
+        n++;
+      } else {
+        c.classList.add('hidden');
+      }
+    });
+
+    countEl.textContent = '共 ' + n + ' 个';
+    noResults.style.display = n === 0 ? 'block' : 'none';
+  }
+
+  /* ── set category ── */
+  function setCat(cat) {
+    activeCat = cat;
+    titleEl.textContent = CAT_LABELS[cat] || '项目';
+
+    filterBtns.forEach(b => b.classList.toggle('active', b.dataset.cat === cat));
+    navLinks.forEach(a   => a.classList.toggle('active', a.dataset.cat === cat));
+
+    drawer.classList.remove('open');
+    refresh();
+  }
+
+  /* ── bind filter buttons ── */
+  filterBtns.forEach(b => b.addEventListener('click', () => setCat(b.dataset.cat)));
+  navLinks.forEach(a   => a.addEventListener('click', e => { e.preventDefault(); setCat(a.dataset.cat); }));
+  mobLinks.forEach(a   => a.addEventListener('click', e => { e.preventDefault(); setCat(a.dataset.cat); }));
+
+  /* ── search ── */
+  searchEl.addEventListener('input', () => {
+    searchQuery = searchEl.value.trim();
+    refresh();
+  });
+
+  /* ── mobile drawer ── */
+  mobileBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    drawer.classList.toggle('open');
+  });
+
+  document.addEventListener('click', e => {
+    if (!drawer.contains(e.target) && !mobileBtn.contains(e.target)) {
+      drawer.classList.remove('open');
+    }
+  });
+
+  /* ── init ── */
+  refresh();
+})();
+</script>
+
+</body>
+</html>

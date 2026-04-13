@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FOC_AT32F415 · 驱动板程序文档</title>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --border: #e8e8e8;
+      --text: #1a1a1a;
+      --muted: #888;
+      --accent: #2d6be4;
+      --accent-light: #eef3fd;
+      --tag-bg: #f0f0f0;
+      --sidebar-w: 270px;
+      --header-h: 52px;
+      --radius: 6px;
+      --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Courier New', monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+      background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.7;
+    }
+    #header {
+      position: fixed; top: 0; left: 0; right: 0; height: var(--header-h);
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 20px; gap: 16px; z-index: 100;
+    }
+    #menu-toggle {
+      width: 36px; height: 36px; background: none; border: 1px solid var(--border);
+      border-radius: var(--radius); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 4px; flex-shrink: 0; transition: background 0.15s;
+    }
+    #menu-toggle:hover { background: var(--tag-bg); }
+    #menu-toggle span {
+      display: block; width: 16px; height: 1.5px; background: var(--text);
+      border-radius: 2px; transition: transform 0.2s, opacity 0.2s;
+    }
+    body.menu-open #menu-toggle span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+    body.menu-open #menu-toggle span:nth-child(2) { opacity: 0; }
+    body.menu-open #menu-toggle span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+    #brand { font-size: 15px; font-weight: 600; letter-spacing: -.2px; color: var(--text); }
+    #brand sup { font-size: 10px; font-weight: 400; color: var(--muted); margin-left: 6px; }
+    .header-meta { margin-left: auto; display: flex; gap: 8px; }
+    .badge {
+      font-size: 11px; padding: 2px 8px; border-radius: 20px;
+      background: var(--accent-light); color: var(--accent); font-weight: 500;
+    }
+    #sidebar {
+      position: fixed; top: var(--header-h); left: 0; bottom: 0;
+      width: var(--sidebar-w); background: var(--surface);
+      border-right: 1px solid var(--border); overflow-y: auto;
+      transform: translateX(0);
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); z-index: 90;
+      padding: 16px 0 32px;
+    }
+    body:not(.menu-open) #sidebar { transform: translateX(calc(-1 * var(--sidebar-w))); }
+    .sidebar-section { margin-bottom: 8px; }
+    .sidebar-section-title {
+      font-size: 13px; font-weight: 700; letter-spacing: 0.4px;
+      text-transform: uppercase; color: var(--muted); padding: 8px 20px 4px;
+    }
+    .sidebar-link {
+      display: block; padding: 6px 20px; color: #444; text-decoration: none;
+      font-size: 13px; border-left: 2px solid transparent; transition: all 0.15s;
+    }
+    .sidebar-link:hover { color: var(--accent); background: var(--accent-light); border-left-color: var(--accent); }
+    .sidebar-link.active { color: var(--accent); background: var(--accent-light); border-left-color: var(--accent); font-weight: 500; }
+    .sidebar-sublink {
+      display: block; padding: 3px 20px 3px 30px; color: #888; text-decoration: none;
+      font-size: 12px; border-left: 2px solid transparent; transition: all 0.15s;
+    }
+    .sidebar-sublink:hover { color: var(--accent); background: var(--accent-light); border-left-color: var(--accent); }
+    .sidebar-sublink.active { color: var(--accent); background: var(--accent-light); border-left-color: var(--accent); }
+    .sidebar-expand-row { display: flex; align-items: stretch; }
+    .sidebar-expand-row .sidebar-link { flex: 1; padding-right: 2px; }
+    .sidebar-chevron {
+      width: 28px; flex-shrink: 0; margin-right: 6px; background: none; border: none;
+      cursor: pointer; color: var(--muted); font-size: 18px; font-weight: 300;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 3px; padding: 0; line-height: 1;
+      transition: transform 0.22s ease, color 0.15s, background 0.15s;
+    }
+    .sidebar-chevron:hover { color: var(--accent); background: var(--accent-light); }
+    .sidebar-expandable.open .sidebar-chevron { transform: rotate(90deg); }
+    .sidebar-submenu { overflow: hidden; max-height: 0; transition: max-height 0.3s ease-in-out; }
+    .sidebar-expandable.open .sidebar-submenu { max-height: 1200px; }
+    #main {
+      margin-top: var(--header-h); margin-left: var(--sidebar-w);
+      transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      min-height: calc(100vh - var(--header-h));
+    }
+    body:not(.menu-open) #main { margin-left: 0; }
+    .content { max-width: 920px; margin: 0 auto; padding: 48px 32px 80px; }
+    section { margin-bottom: 72px; }
+    .section-label {
+      font-size: 11px; font-weight: 600; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 12px;
+    }
+    h1 { font-size: 32px; font-weight: 700; letter-spacing: -.5px; line-height: 1.2; margin-bottom: 16px; }
+    h2 { font-size: 20px; font-weight: 600; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 15px; font-weight: 600; margin: 24px 0 10px; }
+    p { color: #444; margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .hero-desc { font-size: 15px; color: #555; max-width: 680px; line-height: 1.8; margin-bottom: 24px; }
+    .hero-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+    .tag { font-size: 12px; padding: 4px 10px; border-radius: 20px; background: var(--tag-bg); color: #555; }
+    .tag-blue { background: #d0e1fd; color: #1a4db7; }
+    .tag-green { background: #c2edd8; color: #1a6648; }
+    .tag-orange { background: #fae6b0; color: #7a5200; }
+    .tag-red { background: #f9cfc8; color: #8b1c0e; }
+    .tag-purple { background: #e1c7fc; color: #5b1fa3; }
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; margin: 16px 0; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+    .card-icon { font-size: 20px; margin-bottom: 8px; }
+    .card-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .card-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 8px 12px; background: #f5f5f5; border: 1px solid var(--border); font-weight: 600; color: #555; }
+    td { padding: 8px 12px; border: 1px solid var(--border); color: #444; vertical-align: top; }
+    tr:hover td { background: #fafafa; }
+    .td-code { font-family: var(--mono); font-size: 12px; background: #f8f8f8; color: #c0392b; }
+    pre {
+      background: #1e1e2e; color: #cdd6f4; border-radius: var(--radius);
+      padding: 20px; overflow-x: auto; font-family: var(--mono); font-size: 12.5px;
+      line-height: 1.7; margin: 16px 0; position: relative;
+    }
+    .copy-btn {
+      position: absolute; top: 8px; right: 8px; width: 28px; height: 28px;
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 4px; cursor: pointer; display: flex; align-items: center;
+      justify-content: center; opacity: 0; transition: opacity 0.15s, background 0.15s;
+      color: #cdd6f4; padding: 0;
+    }
+    pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { background: rgba(255,255,255,0.18); }
+    .copy-btn.copied { color: #a6e3a1; border-color: #a6e3a1; }
+    code { font-family: var(--mono); font-size: 12.5px; background: #f3f3f3; border-radius: 3px; padding: 1px 5px; color: #c0392b; }
+    pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+    .arch { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin: 16px 0; }
+    .arch-layer { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; }
+    .arch-layer:last-child { border-bottom: none; }
+    .arch-name { font-size: 12px; font-weight: 600; color: var(--muted); min-width: 110px; text-transform: uppercase; letter-spacing: .5px; }
+    .arch-items { display: flex; flex-wrap: wrap; gap: 6px; }
+    .arch-chip { font-size: 11.5px; padding: 3px 10px; border-radius: 20px; background: var(--tag-bg); color: #444; }
+    .arch-layer.l1 { background: #eef3fd; } .arch-layer.l1 .arch-chip { background: #d0e1fd; color: #1a4db7; }
+    .arch-layer.l2 { background: #f0faf5; } .arch-layer.l2 .arch-chip { background: #c2edd8; color: #1a6648; }
+    .arch-layer.l3 { background: #fdf8ee; } .arch-layer.l3 .arch-chip { background: #fae6b0; color: #7a5200; }
+    .arch-layer.l4 { background: #fdf3f0; } .arch-layer.l4 .arch-chip { background: #f9cfc8; color: #8b1c0e; }
+    .arch-layer.l5 { background: #f8f0fe; } .arch-layer.l5 .arch-chip { background: #e1c7fc; color: #5b1fa3; }
+    .stats { display: flex; gap: 16px; flex-wrap: wrap; margin: 20px 0; }
+    .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 24px; min-width: 110px; text-align: center; }
+    .stat-num { font-size: 26px; font-weight: 700; color: var(--accent); letter-spacing: -.5px; }
+    .stat-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .flow { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; margin: 16px 0; }
+    .flow-step { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0; border-bottom: 1px dashed #eee; }
+    .flow-step:last-child { border-bottom: none; }
+    .flow-num { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+    .flow-text { font-size: 13px; color: #444; }
+    .flow-text strong { color: var(--text); }
+    .notice { border-left: 3px solid var(--accent); background: var(--accent-light); border-radius: 0 var(--radius) var(--radius) 0; padding: 12px 16px; margin: 16px 0; font-size: 13px; color: #335; }
+    .notice.warn { border-left-color: #e67e22; background: #fef9f0; color: #7a4500; }
+    .notice.ok { border-left-color: #27ae60; background: #f0faf5; color: #1a5c38; }
+    .notice.err { border-left-color: #e74c3c; background: #fef0f0; color: #7a1a1a; }
+    footer { text-align: center; padding: 32px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--border); }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+    @media (max-width: 700px) {
+      .content { padding: 28px 18px 60px; } h1 { font-size: 24px; }
+      .stats { gap: 10px; } .card-grid { grid-template-columns: 1fr 1fr; }
+      .arch-layer { flex-direction: column; align-items: flex-start; gap: 8px; }
+    }
+  </style>
+</head>
+<body class="menu-open">
+
+<!-- ── Header ── -->
+<header id="header">
+  <button id="menu-toggle" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div id="brand">FOC_AT32F415 驱动板程序 <sup>AT32F415CBT7 · Keil MDK-ARM V5 · AC5</sup></div>
+  <div class="header-meta">
+    <span class="badge">25 Projects</span>
+    <span class="badge">FOC</span>
+  </div>
+</header>
+
+<!-- ── Sidebar ── -->
+<nav id="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">概览</div>
+    <a class="sidebar-link active" href="#overview">项目概览</a>
+    <a class="sidebar-link" href="#stats">项目统计</a>
+    <a class="sidebar-link" href="#foc-lib">FOC 库架构</a>
+    <a class="sidebar-link" href="#pinmap">外设引脚速查</a>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-expandable open" id="exp-bldc">
+      <div class="sidebar-expand-row">
+        <div class="sidebar-section-title" style="flex:1;cursor:pointer;margin:0;" onclick="toggleExpand('exp-bldc')">BLDC 无刷电机</div>
+        <button class="sidebar-chevron" onclick="toggleExpand('exp-bldc')">›</button>
+      </div>
+      <div class="sidebar-submenu">
+        <a class="sidebar-sublink" href="#proj01">01 · 双电机开环速度</a>
+        <a class="sidebar-sublink" href="#proj02">02 · 双电机开环位置</a>
+        <a class="sidebar-sublink" href="#proj05">05 · 双电机闭环速度</a>
+        <a class="sidebar-sublink" href="#proj06">06 · 双电机闭环位置</a>
+        <a class="sidebar-sublink" href="#proj07">07 · 位置-力矩互控</a>
+        <a class="sidebar-sublink" href="#proj08">08 · 机器狗专用程序</a>
+        <a class="sidebar-sublink" href="#proj09">09 · 完整FOC力矩控制</a>
+        <a class="sidebar-sublink" href="#proj10">10 · 旋钮与电机协同</a>
+        <a class="sidebar-sublink" href="#proj11">11 · SimpleFOC Studio M0</a>
+        <a class="sidebar-sublink" href="#proj12">12 · SimpleFOC Studio M1</a>
+        <a class="sidebar-sublink" href="#proj21">21 · 霍尔电机闭环</a>
+        <a class="sidebar-sublink" href="#proj23">23 · StepDir控制无刷</a>
+        <a class="sidebar-sublink" href="#proj24">24 · 蓝牙无线调节</a>
+        <a class="sidebar-sublink" href="#proj25">25 · 重力前馈补偿</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-expandable open" id="exp-step">
+      <div class="sidebar-expand-row">
+        <div class="sidebar-section-title" style="flex:1;cursor:pointer;margin:0;" onclick="toggleExpand('exp-step')">步进电机</div>
+        <button class="sidebar-chevron" onclick="toggleExpand('exp-step')">›</button>
+      </div>
+      <div class="sidebar-submenu">
+        <a class="sidebar-sublink" href="#proj14">14 · 步进开环速度</a>
+        <a class="sidebar-sublink" href="#proj16">16 · 闭环速度 AS5600</a>
+        <a class="sidebar-sublink" href="#proj17">17 · 闭环位置 AS5600</a>
+        <a class="sidebar-sublink" href="#proj18">18 · 闭环速度 AS5047P</a>
+        <a class="sidebar-sublink" href="#proj19">19 · 闭环位置 AS5047P</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-expandable open" id="exp-test">
+      <div class="sidebar-expand-row">
+        <div class="sidebar-section-title" style="flex:1;cursor:pointer;margin:0;" onclick="toggleExpand('exp-test')">传感器与测试</div>
+        <button class="sidebar-chevron" onclick="toggleExpand('exp-test')">›</button>
+      </div>
+      <div class="sidebar-submenu">
+        <a class="sidebar-sublink" href="#proj03">03 · AS5600 I²C 编码器</a>
+        <a class="sidebar-sublink" href="#proj04">04 · ABI 正交编码器</a>
+        <a class="sidebar-sublink" href="#proj13">13 · 在线电流检测</a>
+        <a class="sidebar-sublink" href="#proj15">15 · AS5047P SPI 编码器</a>
+        <a class="sidebar-sublink" href="#proj20">20 · 霍尔传感器测试</a>
+        <a class="sidebar-sublink" href="#proj22">22 · Step/Dir 信号监听</a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<main id="main">
+<div class="content">
+
+<!-- ══════════════════════════════════════════════
+     OVERVIEW
+══════════════════════════════════════════════ -->
+<section id="overview">
+  <div class="section-label">Project Overview</div>
+  <h1>FOC_AT32F415 驱动板程序</h1>
+  <p class="hero-desc">
+    基于雅特力 AT32F415CBT7（Cortex-M4，150 MHz）的双电机 FOC 驱动板，包含 25 个独立 Keil MDK-ARM V5 工程，
+    从开环速度到完整 dq 轴电流闭环，覆盖 BLDC、步进电机、多种编码器及 SimpleFOC Studio 实时调试等完整应用场景。
+    所有工程共用 <code>foc_lib/</code> 统一驱动库，通过独立的 <code>at32f415_conf.h</code> 管理外设使能。
+  </p>
+  <div class="hero-tags">
+    <span class="tag tag-blue">AT32F415CBT7 · 150 MHz</span>
+    <span class="tag tag-blue">Cortex-M4</span>
+    <span class="tag tag-green">双路 BLDC FOC</span>
+    <span class="tag tag-green">步进电机 FOC</span>
+    <span class="tag tag-orange">AS5600 I²C</span>
+    <span class="tag tag-orange">AS5047P SPI</span>
+    <span class="tag tag-orange">ABI 正交</span>
+    <span class="tag tag-orange">霍尔传感器</span>
+    <span class="tag tag-purple">SimpleFOC Studio</span>
+    <span class="tag tag-purple">蓝牙 UART</span>
+    <span class="tag tag-red">在线电流检测</span>
+  </div>
+  <div class="notice">
+    芯片: AT32F415CBT7 &nbsp;·&nbsp; Flash: 128 KB &nbsp;·&nbsp; RAM: 32 KB &nbsp;·&nbsp;
+    编译器: ARMCC V5.06 update 5 (AC5) &nbsp;·&nbsp; C99 模式 &nbsp;·&nbsp; 25 个独立工程
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     STATS
+══════════════════════════════════════════════ -->
+<section id="stats">
+  <h2>项目统计</h2>
+  <div class="stats">
+    <div class="stat"><div class="stat-num">25</div><div class="stat-label">独立工程</div></div>
+    <div class="stat"><div class="stat-num">15</div><div class="stat-label">库模块</div></div>
+    <div class="stat"><div class="stat-num">4</div><div class="stat-label">编码器类型</div></div>
+    <div class="stat"><div class="stat-num">2</div><div class="stat-label">电机类型</div></div>
+    <div class="stat"><div class="stat-num">6</div><div class="stat-label">控制模式</div></div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <tr><th>分类</th><th>工程数</th><th>包含项目</th></tr>
+      <tr><td>BLDC 无刷电机控制</td><td>14</td><td>01、02、05、06、07、08、09、10、11、12、21、23、24、25</td></tr>
+      <tr><td>步进电机控制</td><td>5</td><td>14、16、17、18、19</td></tr>
+      <tr><td>传感器与功能测试</td><td>6</td><td>03、04、13、15、20、22</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     FOC LIB
+══════════════════════════════════════════════ -->
+<section id="foc-lib">
+  <h2>FOC 库架构（foc_lib/）</h2>
+  <p>所有 25 个工程共用同一套 <code>foc_lib/</code> 驱动库，分为 5 个功能层，共 15 个 C 模块：</p>
+  <div class="arch">
+    <div class="arch-layer l1">
+      <div class="arch-name">应用接口层</div>
+      <div class="arch-items">
+        <span class="arch-chip">motor_bldc.c</span>
+        <span class="arch-chip">motor_stepper.c</span>
+        <span class="arch-chip">commander.c</span>
+        <span class="arch-chip">step_dir.c</span>
+      </div>
+    </div>
+    <div class="arch-layer l2">
+      <div class="arch-name">传感器层</div>
+      <div class="arch-items">
+        <span class="arch-chip">encoder_as5600.c</span>
+        <span class="arch-chip">encoder_as5047p.c</span>
+        <span class="arch-chip">encoder_abi.c</span>
+        <span class="arch-chip">encoder_hall.c</span>
+        <span class="arch-chip">current_sense.c</span>
+      </div>
+    </div>
+    <div class="arch-layer l3">
+      <div class="arch-name">控制算法层</div>
+      <div class="arch-items">
+        <span class="arch-chip">foc_math.c（Clarke/Park/SVM）</span>
+        <span class="arch-chip">pid.c（PID + 限幅）</span>
+        <span class="arch-chip">lpf.c（一阶低通）</span>
+      </div>
+    </div>
+    <div class="arch-layer l4">
+      <div class="arch-name">PWM 驱动层</div>
+      <div class="arch-items">
+        <span class="arch-chip">pwm_bldc.c（TMR1/TMR3，20 kHz 中央对齐）</span>
+        <span class="arch-chip">pwm_stepper.c（TMR1 四路 H 桥）</span>
+      </div>
+    </div>
+    <div class="arch-layer l5">
+      <div class="arch-name">硬件抽象层</div>
+      <div class="arch-items">
+        <span class="arch-chip">AT32F415 SDK（CRM / GPIO / TMR / USART / I2C / SPI / ADC）</span>
+        <span class="arch-chip">at32f415_board.c</span>
+      </div>
+    </div>
+  </div>
+
+  <h3>控制模式枚举</h3>
+  <div class="table-wrap">
+    <table>
+      <tr><th>枚举值</th><th>适用对象</th><th>说明</th></tr>
+      <tr><td class="td-code">BLDC_CTRL_VEL_OPENLOOP</td><td>BLDC</td><td>开环速度，无传感器，靠积分推算电角度</td></tr>
+      <tr><td class="td-code">BLDC_CTRL_ANGLE_OPENLOOP</td><td>BLDC</td><td>开环位置扫描</td></tr>
+      <tr><td class="td-code">BLDC_CTRL_VELOCITY</td><td>BLDC/Stepper</td><td>闭环速度，PID 控制 Uq</td></tr>
+      <tr><td class="td-code">BLDC_CTRL_ANGLE</td><td>BLDC/Stepper</td><td>闭环位置，外环角度 PID + 内环速度 PID</td></tr>
+      <tr><td class="td-code">BLDC_CTRL_TORQUE_VOLTAGE</td><td>BLDC</td><td>电压力矩，直接设定 Uq</td></tr>
+      <tr><td class="td-code">STEPPER_CTRL_VEL_OPENLOOP</td><td>Stepper</td><td>步进开环速度</td></tr>
+    </table>
+  </div>
+
+  <h3>FOC 主循环调用关系</h3>
+  <div class="flow">
+    <div class="flow-step"><div class="flow-num">1</div><div class="flow-text"><strong>encoder_xxx_update()</strong> — 读取传感器，更新 angle（rad）和 velocity（rad/s）</div></div>
+    <div class="flow-step"><div class="flow-num">2</div><div class="flow-text"><strong>bldc_loop_foc(angle, us)</strong> — 执行 Park 逆变换，计算 Ud/Uq，调用 SVM 生成占空比</div></div>
+    <div class="flow-step"><div class="flow-num">3</div><div class="flow-text"><strong>bldc_move(target)</strong> — 根据控制模式，PID 计算目标 Uq/速度/角度</div></div>
+    <div class="flow-step"><div class="flow-num">4</div><div class="flow-text"><strong>pwm_bldc_set_duty()</strong> — 写入 TMR1/TMR3 比较寄存器，更新三相占空比</div></div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PIN MAP
+══════════════════════════════════════════════ -->
+<section id="pinmap">
+  <h2>外设引脚速查表</h2>
+  <div class="table-wrap">
+    <table>
+      <tr><th>外设</th><th>引脚</th><th>方向</th><th>用途</th><th>备注</th></tr>
+      <tr><td>USART2</td><td class="td-code">PA2 TX / PA3 RX</td><td>TX/RX</td><td>调试串口 / Commander</td><td>默认映射，无需 remap</td></tr>
+      <tr><td>USART1</td><td class="td-code">PB6 TX / PB7 RX</td><td>TX/RX</td><td>蓝牙模块（项目08/24）</td><td>需 USART1_MUX remap</td></tr>
+      <tr><td>I2C1</td><td class="td-code">PB8 SCL / PB9 SDA</td><td>I²C</td><td>AS5600 M0 编码器</td><td>需 I2C1_MUX remap</td></tr>
+      <tr><td>I2C2</td><td class="td-code">PB10 SCL / PB11 SDA</td><td>I²C</td><td>AS5600 M1 编码器</td><td>默认映射</td></tr>
+      <tr><td>SPI2</td><td class="td-code">PB12 NSS / PB13 SCK / PB14 MISO / PB15 MOSI</td><td>SPI</td><td>AS5047P 编码器</td><td>默认映射，软件 CS</td></tr>
+      <tr><td>TMR1</td><td class="td-code">PA8 / PA9 / PA10</td><td>PWM 输出</td><td>BLDC M0 三相高侧 PWM</td><td>20 kHz，中央对齐</td></tr>
+      <tr><td>TMR3</td><td class="td-code">PB4 / PB5 / PB0</td><td>PWM 输出</td><td>BLDC M0 三相低侧 / M1 驱动</td><td>需 TMR3_MUX_10 remap</td></tr>
+      <tr><td>TMR2</td><td class="td-code">PA0 CH1 / PA1 CH2</td><td>编码器输入</td><td>ABI 正交编码器</td><td>编码器模式 C（双沿计数）</td></tr>
+      <tr><td>ADC1</td><td class="td-code">PA4 / PA5</td><td>模拟输入</td><td>M0 相电流 Ia / Ib</td><td>12-bit，采样触发 TMR1</td></tr>
+      <tr><td>ADC1</td><td class="td-code">PA6 / PA7</td><td>模拟输入</td><td>M1 相电流 Ia / Ib</td><td>通道 6 / 7</td></tr>
+      <tr><td>EXINT</td><td class="td-code">PA3 / PA4 / PA5</td><td>中断输入</td><td>霍尔传感器 M0（H1/H2/H3）</td><td>双沿触发</td></tr>
+      <tr><td>EXINT</td><td class="td-code">PB6 / PB7 / PC13</td><td>中断输入</td><td>霍尔传感器 M1（H1/H2/H3）</td><td>与 USART1 引脚冲突，需二选一</td></tr>
+      <tr><td>GPIO</td><td class="td-code">PA5 / PA4</td><td>中断输入</td><td>Step/Dir 信号（STEP/DIR）</td><td>项目 22、23</td></tr>
+    </table>
+  </div>
+  <div class="notice warn">
+    PA3–PA5 同时被 霍尔 M0 和 ADC 电流采样使用，请根据实际工程选择，二者不可同时开启。
+    PB6/PB7 在霍尔 M1 模式与蓝牙 USART1 之间冲突，需根据工程选择其一。
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 01
+══════════════════════════════════════════════ -->
+<section id="proj01">
+  <div class="section-label">PROJECT 01</div>
+  <h2>双电机 BLDC 开环速度控制</h2>
+  <div class="hero-tags">
+    <span class="tag tag-blue">BLDC × 2</span>
+    <span class="tag tag-orange">无编码器</span>
+    <span class="tag">开环速度</span>
+    <span class="tag">极对数 7</span>
+    <span class="tag">12.6 V</span>
+  </div>
+  <p>最基础的 BLDC 演示工程，无需任何位置传感器。程序通过对电角度积分产生旋转磁场，以固定速度驱动 M0 和 M1 同步旋转（10 rad/s）。电机无法感知实际位置，故对负载变化无法补偿，适合验证 PWM 输出和三相驱动电路是否正常工作。</p>
+  <h3>外设配置</h3>
+  <div class="table-wrap">
+    <table>
+      <tr><th>外设</th><th>引脚</th><th>功能</th></tr>
+      <tr><td>TMR1 / TMR3</td><td class="td-code">PA8/PA9/PA10 + PB4/PB5/PB0</td><td>M0/M1 三相 20 kHz PWM</td></tr>
+      <tr><td>USART2</td><td class="td-code">PA2 TX / PA3 RX</td><td>调试打印</td></tr>
+    </table>
+  </div>
+  <h3>核心代码</h3>
+<pre><code>bldc_init(&amp;motor0, 0, 7, 12.6f);   /* motor_id=0, 极对数=7, 电源=12.6V */
+bldc_init(&amp;motor1, 1, 7, 12.6f);
+motor0.controller = BLDC_CTRL_VEL_OPENLOOP;
+motor1.controller = BLDC_CTRL_VEL_OPENLOOP;
+bldc_init_hardware(&amp;motor0);
+bldc_init_hardware(&amp;motor1);
+bldc_init_foc(&amp;motor0, 0.0f, get_micros());
+bldc_init_foc(&amp;motor1, 0.0f, get_micros());
+
+while (1) {
+    bldc_move(&amp;motor0, 10.0f);   /* 目标速度 10 rad/s */
+    bldc_move(&amp;motor1, 10.0f);
+}</code></pre>
+  <div class="notice ok">开环模式下 <code>bldc_move()</code> 的参数直接作为速度目标，内部以固定步长积分电角度，无 PID 参与。这是调试驱动板最简单的方式。</div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 02
+══════════════════════════════════════════════ -->
+<section id="proj02">
+  <div class="section-label">PROJECT 02</div>
+  <h2>双电机 BLDC 开环位置扫描</h2>
+  <div class="hero-tags">
+    <span class="tag tag-blue">BLDC × 2</span>
+    <span class="tag tag-orange">无编码器</span>
+    <span class="tag">开环位置</span>
+    <span class="tag">±2π rad 扫描</span>
+  </div>
+  <p>在开环模式下以位置目标驱动电机，程序以 1 ms 为步长不断递增目标角度，实现从 −2π 到 +2π 的连续正反扫描。由于没有编码器，实际转子位置与指令之间可能有偏差（取决于负载），主要用于验证 FOC 相序、 SVM 生成及驱动电路三相平衡性。</p>
+  <h3>外设配置</h3>
+  <div class="table-wrap">
+    <table>
+      <tr><th>外设</th><th>引脚</th><th>功能</th></tr>
+      <tr><td>TMR1 / TMR3</td><td class="td-code">PA8/PA9/PA10 + PB4/PB5/PB0</td><td>M0/M1 三相 PWM</td></tr>
+      <tr><td>USART2</td><td class="td-code">PA2 / PA3</td><td>调试打印</td></tr>
+    </table>
+  </div>
+  <h3>核心代码</h3>
+<pre><code>motor0.controller = BLDC_CTRL_ANGLE_OPENLOOP;
+motor1.controller = BLDC_CTRL_ANGLE_OPENLOOP;
+/* ... init ... */
+float angle = 0.0f;
+while (1) {
+    angle += 0.001f;
+    if (angle &gt; 6.28318f) angle = -6.28318f;
+    bldc_move(&amp;motor0, angle);
+    bldc_move(&amp;motor1, angle);
+    delay_ms(1);
+}</code></pre>
+  <div class="notice">开环位置模式以 <code>angle</code> 直接映射为旋转磁场方向，不经过速度 PID。步长 0.001 rad/ms 对应约 1 rad/s 的等效角速度。</div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 03
+══════════════════════════════════════════════ -->
+<section id="proj03">
+  <div class="section-label">PROJECT 03</div>
+  <h2>IIC 双路 AS5600 磁编码器测试</h2>
+  <div class="hero-tags">
+    <span class="tag tag-orange">AS5600 × 2</span>
+    <span class="tag tag-orange">I²C1 + I²C2</span>
+    <span class="tag">角度读取</span>
+    <span class="tag">速度估算</span>
+    <span class="tag">200 ms 刷新</span>
+  </div>
+  <p>验证双路 AS5600 磁编码器的 I²C 通信是否正常。M0 使用 I2C1（PB8/PB9，需 I2C1_MUX remap），M1 使用 I2C2（PB10/PB11，默认映射）。AS5600 内部为 12-bit 绝对角度（0–4095 → 0–2π rad），foc_lib 在读取原始值后做角度归一化和一阶差分速度估算，通过串口每 200 ms 打印一次双路数据。</p>
+  <h3>外设配置</h3>
+  <div class="table-wrap">
+    <table>
+      <tr><th>外设</th><th>引脚</th><th>功能</th></tr>
+      <tr><td>I2C1（remap）</td><td class="td-code">PB8 SCL / PB9 SDA</td><td>AS5600 M0</td></tr>
+      <tr><td>I2C2</td><td class="td-code">PB10 SCL / PB11 SDA</td><td>AS5600 M1</td></tr>
+      <tr><td>USART2</td><td class="td-code">PA2 / PA3</td><td>串口打印</td></tr>
+    </table>
+  </div>
+  <h3>核心代码</h3>
+<pre><code>as5600_init_m0();   /* 初始化 I2C1 PB8/PB9，内部执行 I2C1_MUX remap */
+as5600_init_m1();   /* 初始化 I2C2 PB10/PB11 */
+
+while (1) {
+    as5600_update_m0(&amp;enc0, get_micros());  /* 读角度+估算速度 */
+    as5600_update_m1(&amp;enc1, get_micros());
+    printf("M0: %.4f rad  %.2f rad/s | M1: %.4f rad  %.2f rad/s\r\n",
+           enc0.angle, enc0.velocity, enc1.angle, enc1.velocity);
+    delay_ms(200);
+}</code></pre>
+  <div class="notice">AS5600 地址固定为 0x36，两路通过不同 I²C 总线区分。若同一总线需挂多个 AS5600，需配置 ADDR 引脚改变地址。</div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 04
+══════════════════════════════════════════════ -->
+<section id="proj04">
+  <div class="section-label">PROJECT 04</div>
+  <h2>ABI 正交编码器测试</h2>
+  <div class="hero-tags">
+    <span class="tag tag-orange">ABI 正交编码器</span>
+    <span class="tag tag-orange">TMR2 编码器模式</span>
+    <span class="tag">CPR 4096</span>
+    <span class="tag">计数 + 速度</span>
+  </div>
+  <p>使用 AT32F415 的 TMR2 硬件编码器模式（双沿计数，<code>TMR_ENCODER_MODE_C</code>），将 A/B 相正交信号映射到 PA0（CH1）和 PA1（CH2），硬件自动完成方向判断和计数增减。foc_lib 将 TMR2 计数值转换为弧度角度并用一阶差分估算速度，每 200 ms 打印一次。CPR 4096 意味着每转硬件计数 16384 脉冲（4× 模式）。</p>
+  <h3>外设配置</h3>
+  <div class="table-wrap">
+    <table>
+      <tr><th>外设</th><th>引脚</th><th>功能</th></tr>
+      <tr><td>TMR2 编码器模式</td><td class="td-code">PA0 CH1(A相) / PA1 CH2(B相)</td><td>正交计数，自动方向</td></tr>
+      <tr><td>USART2</td><td class="td-code">PA2 / PA3</td><td>串口打印</td></tr>
+    </table>
+  </div>
+  <h3>核心代码</h3>
+<pre><code>enc.cpr = 4096;           /* 每转计数 4096（× 4 = 16384 脉冲）*/
+encoder_abi_init(4096);   /* 配置 TMR2 编码器模式，计数上限 0xFFFF */
+
+while (1) {
+    encoder_abi_update(&amp;enc, get_micros());
+    printf("angle: %.4f rad  vel: %.2f rad/s  cnt: %ld\r\n",
+           enc.angle, enc.velocity, (long)enc.count);
+    delay_ms(200);
+}</code></pre>
+  <div class="notice">TMR2/TMR5 基础架构为 16-bit 计数器，但其 CVAL/PR 寄存器宽度为 32-bit，可扩展为 32-bit 模式（0–4294967295），DS 将其直接列为"2 x 32-bit timers"。用作编码器接口时，启用 32-bit 模式可彻底避免高速旋转的计数溢出问题（RM §14.1.2）。</div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 05
+══════════════════════════════════════════════ -->
+<section id="proj05">
+  <div class="section-label">PROJECT 05</div>
+  <h2>双电机 BLDC 闭环速度控制</h2>
+  <div class="hero-tags">
+    <span class="tag tag-blue">BLDC × 2</span>
+    <span class="tag tag-orange">AS5600 × 2</span>
+    <span class="tag tag-green">闭环速度</span>
+    <span class="tag">目标 5 rad/s</span>
+    <span class="tag">速度 PID</span>
+  </div>
+  <p>以 AS5600 作为位置反馈，实现 PID 速度闭环控制。主循环在每次迭代中先更新两路编码器数据，再调用 <code>bldc_loop_foc()</code> 执行 Park 变换，最后由 <code>bldc_move(5.0f)</code> 触发速度 PID 计算目标 Uq 并输出。即使负载突然变化，PID 也能通过调节 Uq 维持目标速度，是最基础的实用闭环工程。</p>
+  <h3>外设配置</h3>
+  <div class="table-wrap">
+    <table>
+      <tr><th>外设</th><th>引脚</th><th>功能</th></tr>
+      <tr><td>I2C1（remap）</td><td class="td-code">PB8 / PB9</td><td>AS5600 M0</td></tr>
+      <tr><td>I2C2</td><td class="td-code">PB10 / PB11</td><td>AS5600 M1</td></tr>
+      <tr><td>TMR1 / TMR3</td><td class="td-code">PA8/PA9/PA10 + PB4/PB5/PB0</td><td>双路三相 PWM</td></tr>
+      <tr><td>USART2</td><td class="td-code">PA2 / PA3</td><td>调试打印</td></tr>
+    </table>
+  </div>
+  <h3>控制主循环</h3>
+<pre><code>while (1) {
+    uint32_t now = get_micros();
+    as5600_update_m0(&amp;enc0, now);
+    as5600_update_m1(&amp;enc1, now);
+    bldc_loop_foc(&amp;motor0, enc0.angle, now);  /* Park 变换，计算 Ud/Uq */
+    bldc_loop_foc(&amp;motor1, enc1.angle, now);
+    bldc_move(&amp;motor0, 5.0f);   /* 速度 PID：目标 5 rad/s */
+    bldc_move(&amp;motor1, 5.0f);
+}</code></pre>
+  <div class="notice ok">此工程是 AS5600 + BLDC 闭环的最小完整示例，建议先用本工程验证 PID 参数，再移植到 06/07 等高级控制工程。</div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 06
+══════════════════════════════════════════════ -->
+<section id="proj06">
+  <div class="section-label">PROJECT 06</div>
+  <h2>双电机 BLDC 闭环位置控制</h2>
+  <div class="hero-tags">
+    <span class="tag tag-blue">BLDC × 2</span>
+    <span class="tag tag-orange">AS5600 × 2</span>
+    <span class="tag tag-green">闭环位置</span>
+    <span class="tag">目标 0 rad</span>
+    <span class="tag">双环 PID</span>
+  </div>
+  <p>在速度闭环的基础上增加外环角度 PID，实现双环（位置外环 + 速度内环）闭环控制。目标角度设为 0 rad（上电时的初始位置），电机会主动保持在目标角度，对外部扰动有抵抗能力。启动时先读取当前编码器角度作为 FOC 初始化参考，避免启动冲击。</p>
+  <h3>控制主循环</h3>
+<pre><code>motor0.controller = BLDC_CTRL_ANGLE;
+motor1.controller = BLDC_CTRL_ANGLE;
+/* ... 初始化编码器和硬件 ... */
+while (1) {
+    uint32_t now = get_micros();
+    as5600_update_m0(&amp;enc0, now);
+    as5600_update_m1(&amp;enc1, now);
+    bldc_loop_foc(&amp;motor0, enc0.angle, now);
+    bldc_loop_foc(&amp;motor1, enc1.angle, now);
+    bldc_move(&amp;motor0, 0.0f);   /* 位置目标 0 rad，保持不动 */
+    bldc_move(&amp;motor1, 0.0f);
+}</code></pre>
+  <div class="notice">位置模式下 <code>bldc_move(target_rad)</code> 中的参数为绝对角度目标（单位 rad）。若需要多圈跟踪，需根据实际应用对角度做累计处理。</div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 07
+══════════════════════════════════════════════ -->
+<section id="proj07">
+  <div class="section-label">PROJECT 07</div>
+  <h2>双电机闭环位置–力矩互控</h2>
+  <div class="hero-tags">
+    <span class="tag tag-blue">BLDC × 2</span>
+    <span class="tag tag-orange">AS5600 × 2</span>
+    <span class="tag tag-green">M0 位置控制</span>
+    <span class="tag tag-red">M1 力矩控制</span>
+  </div>
+  <p>两路电机采用不同控制模式：M0 作为从动轴跟随位置目标（1.0 rad），M1 以固定力矩电压（Uq = 0.5 V）抵抗 M0 的运动，模拟机械臂与弹簧的联合作用场景。此工程展示了 foc_lib 多模式独立运行的能力，两套 PID 参数互不干扰。</p>
+  <div class="table-wrap">
+    <table>
+      <tr><th>电机</th><th>控制模式</th><th>目标</th><th>说明</th></tr>
+      <tr><td>M0</td><td class="td-code">BLDC_CTRL_ANGLE</td><td>1.0 rad</td><td>闭环跟随角度目标</td></tr>
+      <tr><td>M1</td><td class="td-code">BLDC_CTRL_TORQUE_VOLTAGE</td><td>0.5 V (Uq)</td><td>持续施加固定力矩</td></tr>
+    </table>
+  </div>
+<pre><code>motor0.controller = BLDC_CTRL_ANGLE;
+motor1.controller = BLDC_CTRL_TORQUE_VOLTAGE;
+/* ... */
+while (1) {
+    /* FOC 计算同时进行 */
+    bldc_loop_foc(&amp;motor0, enc0.angle, now);
+    bldc_loop_foc(&amp;motor1, enc1.angle, now);
+    bldc_move(&amp;motor0, 1.0f);   /* M0: 位置 1 rad */
+    bldc_move(&amp;motor1, 0.5f);   /* M1: Uq=0.5V 力矩 */
+}</code></pre>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 08
+══════════════════════════════════════════════ -->
+<section id="proj08">
+  <div class="section-label">PROJECT 08</div>
+  <h2>灯哥开源机器狗专用程序（串口控制关节）</h2>
+  <div class="hero-tags">
+    <span class="tag tag-blue">BLDC × 2</span>
+    <span class="tag tag-orange">AS5600 × 2</span>
+    <span class="tag tag-purple">蓝牙 USART1</span>
+    <span class="tag tag-green">关节角度控制</span>
+    <span class="tag">F/B/S 命令</span>
+  </div>
+  <p>面向灯哥开源四足机器狗关节的专用驱动程序，两路 BLDC 均工作在角度闭环模式，通过 USART1（PB6/PB7，需 USART1_MUX remap）接收蓝牙串口命令实时更新关节目标角度。支持三条命令：<code>'F'</code>（前进，目标 ±1 rad）、<code>'B'</code>（后退，目标 ∓1 rad）、<code>'S'</code>（停止，目标 0 rad）。</p>
+  <h3>外设配置</h3>
+  <div class="table-wrap">
+    <table>
+      <tr><th>外设</th><th>引脚</th><th>功能</th></tr>
+      <tr><td>USART1（remap）</td><td class="td-code">PB6 TX / PB7 RX</td><td>蓝牙模块，9600 bps</td></tr>
+      <tr><td>I2C1/I2C2</td><td class="td-code">PB8-PB9 / PB10-PB11</td><td>AS5600 M0/M1</td></tr>
+      <tr><td>TMR1 / TMR3</td><td class="td-code">PA8/PA9/PA10 + PB4/PB5/PB0</td><td>双路 PWM</td></tr>
+      <tr><td>USART2</td><td class="td-code">PA2 / PA3</td><td>调试打印</td></tr>
+    </table>
+  </div>
+  <h3>命令解析</h3>
+<pre><code>/* 主循环中轮询 USART1 接收缓冲 */
+if (usart_flag_get(USART1, USART_RDBF_FLAG) != RESET) {
+    uint8_t cmd = (uint8_t)usart_data_receive(USART1);
+    if (cmd == 'F') { t0 =  1.0f; t1 =  1.0f; }  /* 前进 */
+    if (cmd == 'B') { t0 = -1.0f; t1 = -1.0f; }  /* 后退 */
+    if (cmd == 'S') { t0 =  0.0f; t1 =  0.0f; }  /* 停止 */
+}
+bldc_move(&amp;motor0, t0);
+bldc_move(&amp;motor1, t1);</code></pre>
+  <div class="notice warn">PB6/PB7 被 USART1 占用，此工程不能同时启用霍尔传感器 M1（引脚冲突）。两者必须二选一。</div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 09
+══════════════════════════════════════════════ -->
+<section id="proj09">
+  <div class="section-label">PROJECT 09</div>
+  <h2>双电机完整 FOC 力矩控制（含在线电流检测）</h2>
+  <div class="hero-tags">
+    <span class="tag tag-blue">BLDC × 2</span>
+    <span class="tag tag-orange">AS5600 × 2</span>
+    <span class="tag tag-red">电流检测 × 4</span>
+    <span class="tag tag-red">力矩电压控制</span>
+    <span class="tag">Uq = 0.3 V</span>
+  </div>
+  <p>最完整的 BLDC 力矩控制工程，在闭环 FOC 基础上增加了 4 路在线电流采样（PA4/PA5 对应 M0 的 Ia/Ib，PA6/PA7 对应 M1 的 Ia/Ib）。上电后先对两路电流传感器进行零偏校准（<code>current_sense_calibrate()</code>），然后进入主循环同时更新编码器角度和电流值，以固定力矩电压 Uq = 0.3 V 驱动电机。可作为电流闭环控制的基础框架。</p>
+  <h3>外设配置</h3>
+  <div class="table-wrap">
+    <table>
+      <tr><th>外设</th><th>引脚</th><th>功能</th></tr>
+      <tr><td>ADC1 CH4/CH5</td><td class="td-code">PA4 / PA5</td><td>M0 相电流 Ia / Ib</td></tr>
+      <tr><td>ADC1 CH6/CH7</td><td class="td-code">PA6 / PA7</td><td>M1 相电流 Ia / Ib</td></tr>
+      <tr><td>I2C1/I2C2</td><td class="td-code">PB8-PB11</td><td>AS5600 双路编码器</td></tr>
+      <tr><td>TMR1 / TMR3</td><td class="td-code">PA8-PA10 + PB4/PB5/PB0</td><td>三相 PWM</td></tr>
+    </table>
+  </div>
+<pre><code>current_sense_init();
+current_sense_calibrate(0, &amp;cs0);   /* M0 零偏校准 */
+current_sense_calibrate(1, &amp;cs1);   /* M1 零偏校准 */
+/* ... FOC 初始化 ... */
+while (1) {
+    as5600_update_m0(&amp;enc0, now);
+    as5600_update_m1(&amp;enc1, now);
+    current_sense_read(0, &amp;cs0);    /* 读取 M0 Ia/Ib */
+    current_sense_read(1, &amp;cs1);    /* 读取 M1 Ia/Ib */
+    bldc_loop_foc(&amp;motor0, enc0.angle, now);
+    bldc_loop_foc(&amp;motor1, enc1.angle, now);
+    bldc_move(&amp;motor0, 0.3f);       /* Uq = 0.3 V */
+    bldc_move(&amp;motor1, 0.3f);
+}</code></pre>
+  <div class="notice ok">当前电流值仅作监测，未接入电流闭环 PID。如需真正的 dq 轴电流控制，可将 cs0.Ia/Ib 传入 Clarke/Park 变换并闭合 Id/Iq 回路。</div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 10
+══════════════════════════════════════════════ -->
+<section id="proj10">
+  <div class="section-label">PROJECT 10</div>
+  <h2>旋钮与电机速度协同控制</h2>
+  <div class="hero-tags">
+    <span class="tag tag-blue">BLDC × 2</span>
+    <span class="tag tag-orange">AS5600 × 2</span>
+    <span class="tag">M0 作旋钮</span>
+    <span class="tag tag-green">M1 跟随速度</span>
+  </div>
+  <p>有趣的人机交互工程：M0 设置为力矩电压 0（相当于可自由转动的旋钮），用户手动拨动 M0 轴；M1 的速度目标实时等于 M0 当前测量到的角速度，实现"用手旋转 M0 来控制 M1 转速"。体现了 SimpleFOC 框架中用一路电机的编码器输出驱动另一路电机的灵活性。</p>
+<pre><code>motor0.controller = BLDC_CTRL_TORQUE_VOLTAGE;  /* M0: 自由转动（旋钮）*/
+motor1.controller = BLDC_CTRL_VELOCITY;        /* M1: 跟随速度 */
+while (1) {
+    as5600_update_m0(&amp;enc0, now);
+    as5600_update_m1(&amp;enc1, now);
+    bldc_loop_foc(&amp;motor0, enc0.angle, now);
+    bldc_loop_foc(&amp;motor1, enc1.angle, now);
+    bldc_move(&amp;motor0, 0.0f);              /* Uq=0，自由旋转 */
+    bldc_move(&amp;motor1, motor0.shaft_vel);  /* M1 速度 = M0 速度 */
+}</code></pre>
+  <div class="notice">实际应用中建议对 <code>motor0.shaft_vel</code> 加一阶低通滤波后再传给 M1，以避免手抖引起速度指令抖动。</div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 11
+══════════════════════════════════════════════ -->
+<section id="proj11">
+  <div class="section-label">PROJECT 11</div>
+  <h2>SimpleFOC Studio 实时调参（M0 端）</h2>
+  <div class="hero-tags">
+    <span class="tag tag-blue">BLDC M0</span>
+    <span class="tag tag-orange">AS5600 M0</span>
+    <span class="tag tag-red">电流检测 M0</span>
+    <span class="tag tag-purple">Commander 协议</span>
+    <span class="tag">USART2 115200</span>
+  </div>
+  <p>将 M0 的 BLDC 速度控制接入 SimpleFOC Studio 上位机调参协议。Commander 模块通过 USART2（115200 bps）实现字符命令解析，支持实时修改 PID 参数（Kp/Ki）、速度目标和电压上限，无需重新烧录固件。配合 SimpleFOC Studio PC 软件可实时绘制曲线并调参。</p>
+  <h3>Commander 注册的可调变量</h3>
+  <div class="table-wrap">
+    <table>
+      <tr><th>命令字</th><th>变量</th><th>说明</th></tr>
+      <tr><td class="td-code">'M'</td><td class="td-code">motor0</td><td>电机完整状态（速度/角度/Uq）</td></tr>
+      <tr><td class="td-code">'P'</td><td class="td-code">motor0.pid_vel.Kp</td><td>速度 PID 比例系数</td></tr>
+      <tr><td class="td-code">'I'</td><td class="td-code">motor0.pid_vel.Ki</td><td>速度 PID 积分系数</td></tr>
+      <tr><td class="td-code">'L'</td><td class="td-code">motor0.U_limit</td><td>输出电压上限（V）</td></tr>
+    </table>
+  </div>
+<pre><code>commander_add_motor('M', &amp;motor0);
+commander_add_scalar('P', &amp;motor0.pid_vel.Kp);
+commander_add_scalar('I', &amp;motor0.pid_vel.Ki);
+commander_add_scalar('L', &amp;motor0.U_limit);
+
+while (1) {
+    bldc_loop_foc(&amp;motor0, enc0.angle, now);
+    bldc_move(&amp;motor0, motor0.target);  /* target 由 Commander 实时写入 */
+    commander_run();                    /* 解析串口命令 */
+}</code></pre>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 12
+══════════════════════════════════════════════ -->
+<section id="proj12">
+  <div class="section-label">PROJECT 12</div>
+  <h2>SimpleFOC Studio 实时调参（M1 端）</h2>
+  <div class="hero-tags">
+    <span class="tag tag-blue">BLDC M1</span>
+    <span class="tag tag-orange">AS5600 M1</span>
+    <span class="tag tag-red">电流检测 M1</span>
+    <span class="tag tag-purple">Commander 协议</span>
+    <span class="tag">USART2 115200</span>
+  </div>
+  <p>与项目 11 结构完全对称，专用于 M1 通道的调参。两个工程可分别独立使用，也可以在需要双电机调参时同时打开两套串口连接（需两块板或通过不同波特率区分）。M1 使用 I2C2 上的 AS5600 以及 ADC CH6/CH7 电流采样。</p>
+<pre><code>bldc_init(&amp;motor1, 1, 7, 12.6f);    /* motor_id = 1 */
+motor1.controller = BLDC_CTRL_VELOCITY;
+as5600_init_m1();
+current_sense_init();
+current_sense_calibrate(1, &amp;cs1);
+/* Commander 注册 M1 参数 */
+commander_add_motor('M', &amp;motor1);
+while (1) {
+    as5600_update_m1(&amp;enc1, now);
+    bldc_loop_foc(&amp;motor1, enc1.angle, now);
+    bldc_move(&amp;motor1, motor1.target);
+    commander_run();
+}</code></pre>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 13
+══════════════════════════════════════════════ -->
+<section id="proj13">
+  <div class="section-label">PROJECT 13</div>
+  <h2>双电机在线电流检测功能测试</h2>
+  <div class="hero-tags">
+    <span class="tag tag-red">ADC × 4 路</span>
+    <span class="tag">无电机控制</span>
+    <span class="tag">零偏校准</span>
+    <span class="tag">100 ms 刷新</span>
+  </div>
+  <p>纯粹的电流采样验证工程，不驱动任何电机。上电后对 M0/M1 两路电流传感器进行零偏校准（采集静态均值作为偏移），然后每 100 ms 读取一次四路电流值并打印，用于验证采样电路、运放增益和 ADC 线性度。适合在接入电机前先确认电流检测硬件工作正常。</p>
+  <h3>外设配置</h3>
+  <div class="table-wrap">
+    <table>
+      <tr><th>通道</th><th>引脚</th><th>测量量</th></tr>
+      <tr><td>ADC1 CH4</td><td class="td-code">PA4</td><td>M0 A 相电流 Ia</td></tr>
+      <tr><td>ADC1 CH5</td><td class="td-code">PA5</td><td>M0 B 相电流 Ib</td></tr>
+      <tr><td>ADC1 CH6</td><td class="td-code">PA6</td><td>M1 A 相电流 Ia</td></tr>
+      <tr><td>ADC1 CH7</td><td class="td-code">PA7</td><td>M1 B 相电流 Ib</td></tr>
+    </table>
+  </div>
+<pre><code>current_sense_init();
+current_sense_calibrate(0, &amp;cs0);  /* M0 零偏校准（电机不通电时运行）*/
+current_sense_calibrate(1, &amp;cs1);  /* M1 零偏校准 */
+while (1) {
+    current_sense_read(0, &amp;cs0);
+    current_sense_read(1, &amp;cs1);
+    printf("M0: Ia=%.3fA Ib=%.3fA | M1: Ia=%.3fA Ib=%.3fA\r\n",
+           cs0.Ia, cs0.Ib, cs1.Ia, cs1.Ib);
+    delay_ms(100);
+}</code></pre>
+  <div class="notice warn">必须在电机不通电（三相悬空）状态下运行校准，否则相电流偏置不为零，影响后续 FOC 精度。</div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 14
+══════════════════════════════════════════════ -->
+<section id="proj14">
+  <div class="section-label">PROJECT 14</div>
+  <h2>步进电机开环速度测试</h2>
+  <div class="hero-tags">
+    <span class="tag tag-blue">Stepper</span>
+    <span class="tag tag-orange">无编码器</span>
+    <span class="tag">开环速度</span>
+    <span class="tag">极对数 50</span>
+    <span class="tag">5 rad/s</span>
+  </div>
+  <p>步进电机 FOC 驱动的入门工程，使用 <code>pwm_stepper.c</code> 驱动 H 桥输出 AB 两相正弦波（由 TMR1 四个通道产生），以开环方式控制步进电机以 5 rad/s 连续旋转。极对数 50 对应标准 200 步/转的两相步进电机（1.8°/步，= 100 极对数简化为 50 电气极对数）。</p>
+  <h3>外设配置</h3>
+  <div class="table-wrap">
+    <table>
+      <tr><th>外设</th><th>引脚</th><th>功能</th></tr>
+      <tr><td>TMR1 CH1/CH2/CH3/CH4</td><td class="td-code">PA8 / PA9 / PA10 / PA11</td><td>步进电机 AB 两相 H 桥 PWM</td></tr>
+      <tr><td>USART2</td><td class="td-code">PA2 / PA3</td><td>调试打印</td></tr>
+    </table>
+  </div>
+<pre><code>stepper_init(&amp;stepper, 50, 12.6f);           /* 极对数=50, 电源=12.6V */
+stepper.controller = STEPPER_CTRL_VEL_OPENLOOP;
+stepper_init_hardware(&amp;stepper);
+stepper_init_foc(&amp;stepper, 0.0f, get_micros());
+while (1) {
+    stepper_move(&amp;stepper, 5.0f);   /* 开环速度 5 rad/s */
+}</code></pre>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 15
+══════════════════════════════════════════════ -->
+<section id="proj15">
+  <div class="section-label">PROJECT 15</div>
+  <h2>AS5047P SPI 磁编码器测试</h2>
+  <div class="hero-tags">
+    <span class="tag tag-orange">AS5047P</span>
+    <span class="tag tag-orange">SPI2</span>
+    <span class="tag">14-bit 绝对角度</span>
+    <span class="tag">4.5 MHz</span>
+    <span class="tag">CPHA=1</span>
+  </div>
+  <p>验证 AS5047P 高精度磁编码器的 SPI 通信。AS5047P 分辨率为 14-bit（16384 计数/圈），通过 SPI2（PB12 NSS / PB13 SCK / PB14 MISO / PB15 MOSI）以 4.5 MHz、16-bit 帧通信，SPI 模式 1（CPOL=0，CPHA=1）。每 200 ms 打印一次角度、速度和原始 ADC 值，可用于精确定位应用的传感器验证。</p>
+  <h3>外设配置</h3>
+  <div class="table-wrap">
+    <table>
+      <tr><th>外设</th><th>引脚</th><th>功能</th></tr>
+      <tr><td>SPI2 NSS（软件）</td><td class="td-code">PB12</td><td>片选 CS（低有效）</td></tr>
+      <tr><td>SPI2 SCK</td><td class="td-code">PB13</td><td>时钟，4.5 MHz</td></tr>
+      <tr><td>SPI2 MISO</td><td class="td-code">PB14</td><td>数据输入（传感器→MCU）</td></tr>
+      <tr><td>SPI2 MOSI</td><td class="td-code">PB15</td><td>数据输出（MCU→传感器，发 NOP 帧）</td></tr>
+    </table>
+  </div>
+<pre><code>as5047p_init();   /* 配置 SPI2，16-bit，4.5 MHz，CPHA=1 */
+while (1) {
+    as5047p_update(&amp;enc, get_micros());
+    printf("angle: %.4f rad  vel: %.2f rad/s  raw: %u\r\n",
+           enc.angle, enc.velocity, (unsigned)as5047p_read_raw());
+    delay_ms(200);
+}</code></pre>
+  <div class="notice">AS5047P 读取需要两次 SPI 传输（第一帧发命令，第二帧读数据），<code>as5047p_read_raw()</code> 内部已封装此"哑帧+数据帧"协议。</div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 16
+══════════════════════════════════════════════ -->
+<section id="proj16">
+  <div class="section-label">PROJECT 16</div>
+  <h2>步进电机闭环速度控制（AS5600）</h2>
+  <div class="hero-tags">
+    <span class="tag tag-blue">Stepper</span>
+    <span class="tag tag-orange">AS5600 M0</span>
+    <span class="tag tag-green">闭环速度</span>
+    <span class="tag">目标 2 rad/s</span>
+  </div>
+  <p>步进电机接入 AS5600 编码器实现速度闭环。与开环相比，闭环模式能在负载变化时自动调节 Uq（两相合成电压），防止丢步，同时保证平稳运转。初始化时先读取编码器角度作为 FOC 的初始电角度参考，避免起步时的电角度突变冲击。</p>
+<pre><code>stepper.controller = STEPPER_CTRL_VELOCITY;
+as5600_init_m0();
+stepper_init_hardware(&amp;stepper);
+uint32_t now = get_micros();
+as5600_update_m0(&amp;enc, now);
+stepper_init_foc(&amp;stepper, enc.angle, now);  /* 以编码器初始角为参考 */
+while (1) {
+    as5600_update_m0(&amp;enc, now);
+    stepper_loop_foc(&amp;stepper, enc.angle, now);
+    stepper_move(&amp;stepper, 2.0f);   /* 目标速度 2 rad/s */
+}</code></pre>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 17
+══════════════════════════════════════════════ -->
+<section id="proj17">
+  <div class="section-label">PROJECT 17</div>
+  <h2>步进电机闭环位置控制（AS5600）</h2>
+  <div class="hero-tags">
+    <span class="tag tag-blue">Stepper</span>
+    <span class="tag tag-orange">AS5600 M0</span>
+    <span class="tag tag-green">闭环位置</span>
+    <span class="tag">目标 0 rad</span>
+  </div>
+  <p>步进电机位置闭环，目标角度 0 rad（上电时的初始位置）。双环 PID（外环角度→内环速度→Uq）保证电机在受到外力扰动后能快速恢复到目标位置，不再丢步。适合需要精确定位的场景，如打印机、精密进给等。</p>
+<pre><code>stepper.controller = STEPPER_CTRL_ANGLE;
+/* ... 编码器初始化同 proj16 ... */
+while (1) {
+    as5600_update_m0(&amp;enc, now);
+    stepper_loop_foc(&amp;stepper, enc.angle, now);
+    stepper_move(&amp;stepper, 0.0f);   /* 位置保持在 0 rad */
+}</code></pre>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 18
+══════════════════════════════════════════════ -->
+<section id="proj18">
+  <div class="section-label">PROJECT 18</div>
+  <h2>步进电机闭环速度控制（AS5047P SPI）</h2>
+  <div class="hero-tags">
+    <span class="tag tag-blue">Stepper</span>
+    <span class="tag tag-orange">AS5047P SPI</span>
+    <span class="tag tag-green">闭环速度</span>
+    <span class="tag">目标 2 rad/s</span>
+  </div>
+  <p>与项目 16 功能相同，但将编码器换为精度更高的 AS5047P（14-bit SPI）。适合需要更高角度分辨率的步进电机速度控制场景。AS5047P 的 14-bit 分辨率（16384 计数/圈）优于 AS5600 的 12-bit（4096 计数/圈），速度估算更精确，PID 控制更稳定。</p>
+<pre><code>stepper.controller = STEPPER_CTRL_VELOCITY;
+as5047p_init();   /* SPI2 初始化 */
+stepper_init_hardware(&amp;stepper);
+as5047p_update(&amp;enc, now);
+stepper_init_foc(&amp;stepper, enc.angle, now);
+while (1) {
+    as5047p_update(&amp;enc, now);
+    stepper_loop_foc(&amp;stepper, enc.angle, now);
+    stepper_move(&amp;stepper, 2.0f);
+}</code></pre>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 19
+══════════════════════════════════════════════ -->
+<section id="proj19">
+  <div class="section-label">PROJECT 19</div>
+  <h2>步进电机闭环位置控制（AS5047P SPI）</h2>
+  <div class="hero-tags">
+    <span class="tag tag-blue">Stepper</span>
+    <span class="tag tag-orange">AS5047P SPI</span>
+    <span class="tag tag-green">闭环位置</span>
+    <span class="tag">目标 0 rad</span>
+  </div>
+  <p>步进电机位置闭环的高精度版本，使用 AS5047P 替代 AS5600。14-bit 编码器在位置闭环中的优势体现在稳态精度更高（理论精度约 0.022°），适合高精度数控、机械臂末端执行器等应用。</p>
+<pre><code>stepper.controller = STEPPER_CTRL_ANGLE;
+as5047p_init();
+stepper_init_hardware(&amp;stepper);
+as5047p_update(&amp;enc, now);
+stepper_init_foc(&amp;stepper, enc.angle, now);
+while (1) {
+    as5047p_update(&amp;enc, now);
+    stepper_loop_foc(&amp;stepper, enc.angle, now);
+    stepper_move(&amp;stepper, 0.0f);   /* 高精度位置保持 */
+}</code></pre>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 20
+══════════════════════════════════════════════ -->
+<section id="proj20">
+  <div class="section-label">PROJECT 20</div>
+  <h2>霍尔传感器测试（5 线接法）</h2>
+  <div class="hero-tags">
+    <span class="tag tag-orange">Hall × 2 × 3</span>
+    <span class="tag">EXINT 双沿触发</span>
+    <span class="tag">6 扇区角度</span>
+    <span class="tag">极对数 7</span>
+  </div>
+  <p>验证双路 3 线霍尔传感器（H1/H2/H3 各一对，共 6 根信号线加 2 根电源线，"5 线"指每路3信号+VCC+GND）。每路霍尔通过 3 个 EXINT 中断（双沿触发）实时捕获霍尔组合状态，内部查表将 6 种合法状态（001~110）映射到 6 个 60° 扇区，计算出扇区间速度估算。每 200 ms 打印一次双路角度和速度。</p>
+  <h3>外设配置</h3>
+  <div class="table-wrap">
+    <table>
+      <tr><th>通道</th><th>引脚</th><th>信号</th></tr>
+      <tr><td>霍尔 M0</td><td class="td-code">PA3 / PA4 / PA5</td><td>H1 / H2 / H3（EXINT 3/4/5）</td></tr>
+      <tr><td>霍尔 M1</td><td class="td-code">PB6 / PB7 / PC13</td><td>H1 / H2 / H3（EXINT 6/7/13）</td></tr>
+    </table>
+  </div>
+<pre><code>hall_init_m0(7);   /* 极对数=7，自动配置 PA3/PA4/PA5 为 EXINT */
+hall_init_m1(7);   /* 配置 PB6/PB7/PC13 为 EXINT */
+while (1) {
+    printf("M0: %.4f rad  %.2f rad/s | M1: %.4f rad  %.2f rad/s\r\n",
+           hall_get_angle_m0(), hall_get_velocity_m0(),
+           hall_get_angle_m1(), hall_get_velocity_m1());
+    delay_ms(200);
+}</code></pre>
+  <div class="notice warn">霍尔传感器角度精度仅为 60°/极对数 = 约 8.6°（极对数=7 时），不适合高精度位置控制，适合速度控制或换相依据。</div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 21
+══════════════════════════════════════════════ -->
+<section id="proj21">
+  <div class="section-label">PROJECT 21</div>
+  <h2>双霍尔传感器 BLDC 闭环角度控制</h2>
+  <div class="hero-tags">
+    <span class="tag tag-blue">BLDC × 2</span>
+    <span class="tag tag-orange">Hall × 2 × 3</span>
+    <span class="tag tag-green">闭环位置</span>
+    <span class="tag">目标 1 rad</span>
+  </div>
+  <p>在霍尔传感器的低精度反馈下实现 BLDC 角度闭环控制，目标角度 1 rad。因霍尔分辨率较低（60°/极对数电气角 = 机械角约 8.6°），位置精度有限，但可胜任机器人关节、电动车轮毂等对精度要求不高的应用，成本远低于磁编码器方案。</p>
+<pre><code>motor0.controller = BLDC_CTRL_ANGLE;
+motor1.controller = BLDC_CTRL_ANGLE;
+hall_init_m0(7);
+hall_init_m1(7);
+bldc_init_hardware(&amp;motor0);
+bldc_init_hardware(&amp;motor1);
+uint32_t now = get_micros();
+bldc_init_foc(&amp;motor0, hall_get_angle_m0(), now);
+bldc_init_foc(&amp;motor1, hall_get_angle_m1(), now);
+while (1) {
+    bldc_loop_foc(&amp;motor0, hall_get_angle_m0(), now);
+    bldc_loop_foc(&amp;motor1, hall_get_angle_m1(), now);
+    bldc_move(&amp;motor0, 1.0f);
+    bldc_move(&amp;motor1, 1.0f);
+}</code></pre>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 22
+══════════════════════════════════════════════ -->
+<section id="proj22">
+  <div class="section-label">PROJECT 22</div>
+  <h2>步进电机 Step/Dir 信号接收监听</h2>
+  <div class="hero-tags">
+    <span class="tag tag-orange">STEP PA5 · DIR PA4</span>
+    <span class="tag">EXINT 上升沿</span>
+    <span class="tag">脉冲计数</span>
+    <span class="tag">1.8°/步</span>
+  </div>
+  <p>监听外部运动控制器（如 GRBL、Mach3、LinuxCNC）发出的 Step/Dir 脉冲信号，将其累计转换为角度位置（rad）。STEP 信号（PA5）每上升沿累计一个步进角（π/100 rad = 1.8°），DIR 信号（PA4）决定增减方向。可用于验证上位机脉冲输出频率、方向逻辑，或作为与数控系统对接的信号解析调试工具。</p>
+  <h3>外设配置</h3>
+  <div class="table-wrap">
+    <table>
+      <tr><th>信号</th><th>引脚</th><th>触发方式</th><th>功能</th></tr>
+      <tr><td>STEP</td><td class="td-code">PA5</td><td>EXINT 上升沿</td><td>每脉冲位置 += step_angle</td></tr>
+      <tr><td>DIR</td><td class="td-code">PA4</td><td>读取电平</td><td>HIGH = 正向，LOW = 反向</td></tr>
+    </table>
+  </div>
+<pre><code>#define STEP_ANGLE_RAD  (3.14159265f / 100.0f)   /* 1.8°/步 */
+stepdir_init(STEP_ANGLE_RAD);
+stepdir_reset();
+while (1) {
+    printf("pos: %.4f rad\r\n", stepdir_get_value());
+    delay_ms(200);
+}</code></pre>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 23
+══════════════════════════════════════════════ -->
+<section id="proj23">
+  <div class="section-label">PROJECT 23</div>
+  <h2>Step/Dir 信号控制 BLDC 无刷电机位置</h2>
+  <div class="hero-tags">
+    <span class="tag tag-blue">BLDC M0</span>
+    <span class="tag tag-orange">AS5600 M0</span>
+    <span class="tag tag-red">电流检测</span>
+    <span class="tag tag-purple">Step/Dir 输入</span>
+    <span class="tag tag-green">闭环位置</span>
+  </div>
+  <p>将 Step/Dir 脉冲信号作为 BLDC 位置目标，实现"步进电机改无刷"的方案。外部数控控制器（如 CNC 主轴、3D 打印机）以标准 Step/Dir 接口控制本驱动板，驱动板内部用 FOC 算法对 BLDC 电机进行高性能位置闭环控制，兼容现有 CNC 系统的同时获得无刷电机的优势（高速、高效、低噪音）。</p>
+  <h3>系统架构</h3>
+  <div class="flow">
+    <div class="flow-step"><div class="flow-num">1</div><div class="flow-text"><strong>Step/Dir 脉冲接收</strong> — PA5(STEP) EXINT 中断累计位置，PA4(DIR) 决定方向</div></div>
+    <div class="flow-step"><div class="flow-num">2</div><div class="flow-text"><strong>AS5600 反馈</strong> — I2C1 读取实际转轴角度，12-bit 分辨率</div></div>
+    <div class="flow-step"><div class="flow-num">3</div><div class="flow-text"><strong>FOC 角度闭环</strong> — <code>bldc_move(stepdir_get_value())</code> 跟随脉冲位置</div></div>
+    <div class="flow-step"><div class="flow-num">4</div><div class="flow-text"><strong>电流监测</strong> — ADC 采样 M0 相电流，可选接入电流闭环</div></div>
+  </div>
+<pre><code>motor0.controller = BLDC_CTRL_ANGLE;
+stepdir_init(STEP_ANGLE_RAD);
+stepdir_reset();
+/* ... 编码器 + PWM 初始化 ... */
+while (1) {
+    as5600_update_m0(&amp;enc0, now);
+    bldc_loop_foc(&amp;motor0, enc0.angle, now);
+    bldc_move(&amp;motor0, stepdir_get_value());  /* 目标 = Step/Dir 位置 */
+}</code></pre>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 24
+══════════════════════════════════════════════ -->
+<section id="proj24">
+  <div class="section-label">PROJECT 24</div>
+  <h2>SimpleFOC Studio 蓝牙无线实时调参</h2>
+  <div class="hero-tags">
+    <span class="tag tag-blue">BLDC M0</span>
+    <span class="tag tag-orange">AS5600 M0</span>
+    <span class="tag tag-red">电流检测</span>
+    <span class="tag tag-purple">BT USART1</span>
+    <span class="tag tag-purple">Commander 协议</span>
+  </div>
+  <p>在项目 11 的基础上增加蓝牙无线通道，通过 USART1（PB6/PB7，需 USART1_MUX remap，9600 bps）连接蓝牙模块，同时保留 USART2 作为有线调试口。SimpleFOC Studio PC 端可通过蓝牙无线连接驱动板，在电机运行时远程修改 PID 参数、查看实时曲线，无需走线，适合无线调参场景。</p>
+  <h3>双串口配置</h3>
+  <div class="table-wrap">
+    <table>
+      <tr><th>串口</th><th>引脚</th><th>波特率</th><th>用途</th></tr>
+      <tr><td>USART2（有线）</td><td class="td-code">PA2 TX / PA3 RX</td><td>115200</td><td>调试打印（printf 重定向）</td></tr>
+      <tr><td>USART1（蓝牙，remap）</td><td class="td-code">PB6 TX / PB7 RX</td><td>9600</td><td>Commander 协议，接 BT 模块</td></tr>
+    </table>
+  </div>
+<pre><code>/* USART1 蓝牙初始化（PB6/PB7 remap） */
+gpio_pin_remap_config(USART1_MUX, TRUE);
+usart_init(USART1, 9600, USART_DATA_8BITS, USART_STOP_1_BIT);
+/* Commander 注册（通过 USART1 蓝牙收发命令）*/
+commander_add_motor('M', &amp;motor0);
+commander_add_scalar('P', &amp;motor0.pid_vel.Kp);
+while (1) {
+    bldc_loop_foc(&amp;motor0, enc0.angle, now);
+    bldc_move(&amp;motor0, motor0.target);
+    commander_run();   /* 同时处理 USART1 蓝牙命令 */
+}</code></pre>
+  <div class="notice warn">USART1 PB6/PB7 与霍尔传感器 M1 引脚冲突，本工程不能同时启用霍尔 M1。</div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PROJECT 25
+══════════════════════════════════════════════ -->
+<section id="proj25">
+  <div class="section-label">PROJECT 25</div>
+  <h2>重力前馈补偿控制（机械臂保持水平）</h2>
+  <div class="hero-tags">
+    <span class="tag tag-blue">BLDC M0</span>
+    <span class="tag tag-orange">AS5600 M0</span>
+    <span class="tag tag-red">电流检测</span>
+    <span class="tag tag-green">位置 + 前馈</span>
+    <span class="tag">cos 重力补偿</span>
+  </div>
+  <p>最具工程意义的高级控制工程，在位置 PID 闭环的基础上叠加重力前馈项，使机械臂在任意位置都能抵消重力力矩，无需 PID 积分项承担重力负担，改善系统响应速度和稳态误差。前馈公式为 <code>Ud = GRAVITY_FF × cos(shaft_angle)</code>，其中 <code>GRAVITY_FF</code>（默认 0.5）需根据实际臂长和负载质量进行标定。</p>
+  <h3>控制原理</h3>
+  <div class="flow">
+    <div class="flow-step"><div class="flow-num">1</div><div class="flow-text"><strong>位置 PID</strong> — 角度误差经双环 PID 计算出 Uq（切向力）</div></div>
+    <div class="flow-step"><div class="flow-num">2</div><div class="flow-text"><strong>重力前馈</strong> — 根据当前角度计算 Ud = k × cos(θ)，抵消径向重力分量</div></div>
+    <div class="flow-step"><div class="flow-num">3</div><div class="flow-text"><strong>FOC 输出</strong> — Ud/Uq 经 Park 逆变换 + SVM 生成三相 PWM</div></div>
+  </div>
+<pre><code>#define GRAVITY_FF  0.5f   /* 根据臂长×质量标定，单位 V */
+
+while (1) {
+    as5600_update_m0(&amp;enc0, now);
+    current_sense_read(0, &amp;cs0);
+    bldc_loop_foc(&amp;motor0, enc0.angle, now);
+    /* 注入前馈 Ud：叠加在 d 轴（产生径向力抵消重力） */
+    motor0.Ud = GRAVITY_FF * cosf(motor0.shaft_angle);
+    bldc_move(&amp;motor0, 0.0f);   /* 位置目标：水平位置 0 rad */
+}</code></pre>
+  <div class="notice ok">
+    <strong>标定方法：</strong>将机械臂水平放置（θ=0），逐渐增大 <code>GRAVITY_FF</code> 直到臂在 θ=90° 时能稳定保持，此时的值即为最优前馈增益。
+    典型值范围：轻型臂 0.2–0.8 V，重型臂 1.0–3.0 V（取决于供电电压和电机参数）。
+  </div>
+</section>
+
+</div><!-- .content -->
+
+<footer>
+  FOC_AT32F415 驱动板程序文档 &nbsp;·&nbsp; AT32F415CBT7 · Keil MDK-ARM V5 · AC5 &nbsp;·&nbsp; 25 个独立工程 &nbsp;·&nbsp; foc_lib 共用库
+</footer>
+</main>
+
+<script>
+  // ── Menu Toggle ──
+  document.getElementById('menu-toggle').addEventListener('click', () => {
+    document.body.classList.toggle('menu-open');
+  });
+
+  // ── Active sidebar link on scroll ──
+  const sections = document.querySelectorAll('section[id]');
+  const links = document.querySelectorAll('.sidebar-link, .sidebar-sublink');
+
+  function updateActive() {
+    let current = '';
+    sections.forEach(sec => {
+      if (sec.getBoundingClientRect().top <= 90) current = sec.id;
+    });
+    let activeLink = null;
+    links.forEach(a => {
+      const isActive = a.getAttribute('href') === '#' + current;
+      a.classList.toggle('active', isActive);
+      if (isActive) activeLink = a;
+    });
+    if (activeLink) activeLink.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  window.addEventListener('scroll', updateActive, { passive: true });
+  document.getElementById('main').addEventListener('scroll', updateActive, { passive: true });
+
+  // ── Smooth scroll ──
+  links.forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (window.innerWidth < 700) document.body.classList.remove('menu-open');
+    });
+  });
+
+  // ── Copy button ──
+  const copyIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+  const checkIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  document.querySelectorAll('pre').forEach(pre => {
+    const btn = document.createElement('button');
+    btn.className = 'copy-btn'; btn.title = '复制代码'; btn.innerHTML = copyIcon;
+    btn.addEventListener('click', () => {
+      const code = pre.querySelector('code') ? pre.querySelector('code').innerText : pre.innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        btn.classList.add('copied'); btn.innerHTML = checkIcon;
+        setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = copyIcon; }, 2000);
+      });
+    });
+    pre.appendChild(btn);
+  });
+
+  // ── Collapsible sidebar ──
+  function toggleExpand(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('open');
+  }
+</script>
+</body>
+</html>

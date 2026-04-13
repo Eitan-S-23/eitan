@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AC7916AB 蓝牙声控设备 · 技术文档</title>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --border: #e8e8e8;
+      --text: #1a1a1a;
+      --muted: #888;
+      --accent: #2d6be4;
+      --accent-light: #eef3fd;
+      --tag-bg: #f0f0f0;
+      --sidebar-w: 260px;
+      --header-h: 52px;
+      --radius: 6px;
+      --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Courier New', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    /* ── Header ── */
+    #header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 16px;
+      z-index: 100;
+    }
+
+    #menu-toggle {
+      width: 36px; height: 36px;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 4px;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    #menu-toggle:hover { background: var(--tag-bg); }
+    #menu-toggle span {
+      display: block;
+      width: 16px; height: 1.5px;
+      background: var(--text);
+      border-radius: 2px;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    body.menu-open #menu-toggle span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+    body.menu-open #menu-toggle span:nth-child(2) { opacity: 0; }
+    body.menu-open #menu-toggle span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+
+    #brand {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -.2px;
+      color: var(--text);
+    }
+    #brand sup {
+      font-size: 10px;
+      font-weight: 400;
+      color: var(--muted);
+      margin-left: 6px;
+    }
+
+    .header-meta {
+      margin-left: auto;
+      display: flex; gap: 8px;
+    }
+    .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: var(--accent-light);
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      position: fixed;
+      top: var(--header-h); left: 0; bottom: 0;
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      transform: translateX(0);
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 90;
+      padding: 16px 0 32px;
+    }
+    body:not(.menu-open) #sidebar { transform: translateX(calc(-1 * var(--sidebar-w))); }
+
+    .sidebar-section { margin-bottom: 8px; }
+    .sidebar-section-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 8px 20px 4px;
+    }
+    .sidebar-link {
+      display: block;
+      padding: 6px 20px;
+      color: #444;
+      text-decoration: none;
+      font-size: 13px;
+      border-left: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .sidebar-link:hover {
+      color: var(--accent);
+      background: var(--accent-light);
+      border-left-color: var(--accent);
+    }
+    .sidebar-link.active {
+      color: var(--accent);
+      background: var(--accent-light);
+      border-left-color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* ── Main ── */
+    #main {
+      margin-top: var(--header-h);
+      margin-left: var(--sidebar-w);
+      transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      min-height: calc(100vh - var(--header-h));
+    }
+    body:not(.menu-open) #main { margin-left: 0; }
+
+    .content {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 48px 32px 80px;
+    }
+
+    /* ── Sections ── */
+    section { margin-bottom: 64px; }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -.5px;
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+
+    h2 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 24px 0 10px;
+    }
+
+    p { color: #444; margin-bottom: 12px; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Hero ── */
+    .hero-desc {
+      font-size: 16px;
+      color: #555;
+      max-width: 600px;
+      line-height: 1.8;
+      margin-bottom: 28px;
+    }
+    .hero-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px; }
+    .tag {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: var(--tag-bg);
+      color: #555;
+    }
+
+    /* ── Cards ── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+    .card-icon {
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .card-desc {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th {
+      text-align: left;
+      padding: 8px 12px;
+      background: #f5f5f5;
+      border: 1px solid var(--border);
+      font-weight: 600;
+      color: #555;
+    }
+    td {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      color: #444;
+      vertical-align: top;
+    }
+    tr:hover td { background: #fafafa; }
+    .td-code {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: #f8f8f8;
+      color: #c0392b;
+    }
+
+    /* ── Code ── */
+    pre {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      border-radius: var(--radius);
+      padding: 20px;
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.7;
+      margin: 16px 0;
+      position: relative;
+    }
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 28px;
+      height: 28px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s, background 0.15s;
+      color: #cdd6f4;
+      padding: 0;
+    }
+    pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { background: rgba(255,255,255,0.18); }
+    .copy-btn.copied { color: #a6e3a1; border-color: #a6e3a1; }
+    code {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      background: #f3f3f3;
+      border-radius: 3px;
+      padding: 1px 5px;
+      color: #c0392b;
+    }
+    pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+
+    /* ── Arch diagram ── */
+    .arch {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin: 16px 0;
+    }
+    .arch-layer {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .arch-layer:last-child { border-bottom: none; }
+    .arch-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      min-width: 110px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .arch-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .arch-chip {
+      font-size: 11.5px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: var(--tag-bg);
+      color: #444;
+    }
+    .arch-layer.l1 { background: #eef3fd; }
+    .arch-layer.l1 .arch-chip { background: #d0e1fd; color: #1a4db7; }
+    .arch-layer.l2 { background: #f0faf5; }
+    .arch-layer.l2 .arch-chip { background: #c2edd8; color: #1a6648; }
+    .arch-layer.l3 { background: #fdf8ee; }
+    .arch-layer.l3 .arch-chip { background: #fae6b0; color: #7a5200; }
+    .arch-layer.l4 { background: #fdf3f0; }
+    .arch-layer.l4 .arch-chip { background: #f9cfc8; color: #8b1c0e; }
+    .arch-layer.l5 { background: #f8f0fe; }
+    .arch-layer.l5 .arch-chip { background: #e1c7fc; color: #5b1fa3; }
+
+    /* ── Stats ── */
+    .stats { display: flex; gap: 16px; flex-wrap: wrap; margin: 20px 0; }
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 24px;
+      min-width: 120px;
+      text-align: center;
+    }
+    .stat-num {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -.5px;
+    }
+    .stat-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Flow ── */
+    .flow {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin: 16px 0;
+    }
+    .flow-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px dashed #eee;
+    }
+    .flow-step:last-child { border-bottom: none; }
+    .flow-num {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .flow-text { font-size: 13px; color: #444; }
+    .flow-text strong { color: var(--text); }
+
+    /* ── Notice ── */
+    .notice {
+      border-left: 3px solid var(--accent);
+      background: var(--accent-light);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 16px;
+      margin: 16px 0;
+      font-size: 13px;
+      color: #335;
+    }
+    .notice.warn {
+      border-left-color: #e67e22;
+      background: #fef9f0;
+      color: #7a4500;
+    }
+    .notice.ok {
+      border-left-color: #27ae60;
+      background: #f0faf5;
+      color: #1a5c38;
+    }
+    .notice.err {
+      border-left-color: #e74c3c;
+      background: #fef0f0;
+      color: #7a1a1a;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 32px;
+      font-size: 12px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── Pipeline ── */
+    .pipeline { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin: 16px 0; }
+    .pipeline-step { display: flex; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #eee; }
+    .pipeline-step:last-child { border-bottom: none; }
+    .pipeline-step:nth-child(odd) { background: var(--surface); }
+    .pipeline-step:nth-child(even) { background: #f8f8f8; }
+    .pipeline-num {
+      width: 28px; height: 28px; border-radius: 50%; background: var(--accent);
+      color: #fff; font-size: 13px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 2px;
+    }
+    .pipeline-content { flex: 1; min-width: 0; }
+    .pipeline-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+    .pipeline-desc { font-size: 13px; color: #555; margin-bottom: 6px; }
+
+    /* ── Pin Map ── */
+    .pin-map {
+      background: linear-gradient(135deg, #1e1e2e 0%, #181825 100%);
+      color: #cdd6f4;
+      padding: 20px 24px;
+      border-radius: var(--radius);
+      margin: 16px 0;
+    }
+    .pin-map h4 { color: #89b4fa; font-size: 13px; margin: 16px 0 8px; }
+    .pin-map h4:first-child { margin-top: 0; }
+    .pin-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 8px;
+    }
+    .pin-item {
+      background: rgba(255,255,255,0.05);
+      padding: 8px 12px;
+      border-radius: 4px;
+      border-left: 3px solid var(--accent);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    .pin-name { color: #89b4fa; font-weight: 600; }
+    .pin-func { color: #a6adc8; font-size: 11px; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 700px) {
+      .content { padding: 28px 18px 60px; }
+      h1 { font-size: 24px; }
+      .stats { gap: 10px; }
+      .card-grid { grid-template-columns: 1fr 1fr; }
+      .arch-layer { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .pin-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body class="menu-open">
+
+<!-- Header -->
+<header id="header">
+  <button id="menu-toggle" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div id="brand">AC7916AB 蓝牙声控设备 <sup>杰理 AC79NN · SDK V1.2.0</sup></div>
+  <div class="header-meta">
+    <span class="badge">v1.2.0</span>
+    <span class="badge">BT Audio</span>
+  </div>
+</header>
+
+<!-- Sidebar -->
+<nav id="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">概览</div>
+    <a class="sidebar-link active" href="#overview">项目概览</a>
+    <a class="sidebar-link" href="#stats">项目统计</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">系统架构</div>
+    <a class="sidebar-link" href="#architecture">分层设计</a>
+    <a class="sidebar-link" href="#tasks">RTOS 任务配置</a>
+    <a class="sidebar-link" href="#init-flow">初始化流程</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">硬件架构</div>
+    <a class="sidebar-link" href="#hardware">硬件框图</a>
+    <a class="sidebar-link" href="#gpio">GPIO 配置</a>
+    <a class="sidebar-link" href="#audio-hw">音频硬件</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">蓝牙系统</div>
+    <a class="sidebar-link" href="#bluetooth">蓝牙模块</a>
+    <a class="sidebar-link" href="#emitter">发射器模式</a>
+    <a class="sidebar-link" href="#sniff">Sniff 低功耗</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">音频与存储</div>
+    <a class="sidebar-link" href="#audio">音频系统</a>
+    <a class="sidebar-link" href="#storage">存储系统</a>
+    <a class="sidebar-link" href="#usb">USB 系统</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">外设与模式</div>
+    <a class="sidebar-link" href="#peripherals">外设驱动</a>
+    <a class="sidebar-link" href="#modes">工作模式</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">参考</div>
+    <a class="sidebar-link" href="#power">电源管理</a>
+    <a class="sidebar-link" href="#build">编译构建</a>
+    <a class="sidebar-link" href="#api">API 参考</a>
+    <a class="sidebar-link" href="#files">文件结构</a>
+  </div>
+</nav>
+
+<!-- Main Content -->
+<main id="main">
+<div class="content">
+
+  <!-- ── Overview ── -->
+  <section id="overview">
+    <div class="section-label">Project Overview</div>
+    <h1>AC7916AB 蓝牙声控设备</h1>
+    <p class="hero-desc">
+      基于杰理 AC79NN 芯片的多功能蓝牙音频解决方案，支持蓝牙双模（发射/接收）切换、
+      四声道 DAC 环绕声输出、USB 大容量存储、SD 卡播放、多模式按摩控制等功能。
+      项目集成完整的软硬件一体化设计方案，适用于智能音频外设开发。
+    </p>
+    <div class="hero-tags">
+      <span class="tag">AC79NN 双核处理器</span>
+      <span class="tag">LLVM 编译</span>
+      <span class="tag">蓝牙 5.0 + EDR</span>
+      <span class="tag">四声道 DAC</span>
+      <span class="tag">USB Mass Storage</span>
+      <span class="tag">SD 卡 FATFS</span>
+      <span class="tag">发射/接收双模</span>
+      <span class="tag">SPP 数传</span>
+      <span class="tag">4 种按摩模式</span>
+    </div>
+    <div class="notice">
+      芯片: 杰理 AC7916AB (AC79NN) &nbsp;·&nbsp; SDK: AC79NN_SDK_V1.2.0 &nbsp;·&nbsp;
+      编译: LLVM &nbsp;·&nbsp; Flash: 4 MB · SDRAM: 578 KB
+    </div>
+  </section>
+
+  <!-- ── Stats ── -->
+  <section id="stats">
+    <h2>项目统计</h2>
+    <div class="stats">
+      <div class="stat"><div class="stat-num">5000+</div><div class="stat-label">代码行数</div></div>
+      <div class="stat"><div class="stat-num">16</div><div class="stat-label">RTOS 任务</div></div>
+      <div class="stat"><div class="stat-num">5</div><div class="stat-label">音频编解码</div></div>
+      <div class="stat"><div class="stat-num">4</div><div class="stat-label">DAC 声道</div></div>
+      <div class="stat"><div class="stat-num">4</div><div class="stat-label">按摩模式</div></div>
+    </div>
+  </section>
+
+  <!-- ── Architecture ── -->
+  <section id="architecture">
+    <h2>系统架构</h2>
+    <p>项目采用 5 层分层架构，覆盖蓝牙通信、音频处理、应用逻辑、存储管理和硬件驱动：</p>
+    <div class="arch">
+      <div class="arch-layer l1">
+        <div class="arch-name">蓝牙通信层</div>
+        <div class="arch-items">
+          <span class="arch-chip">A2DP 音乐</span>
+          <span class="arch-chip">HFP 电话</span>
+          <span class="arch-chip">SPP 数传</span>
+          <span class="arch-chip">AVRCP 控制</span>
+          <span class="arch-chip">发射/接收切换</span>
+          <span class="arch-chip">bt_music.c</span>
+          <span class="arch-chip">bt_emitter.c</span>
+        </div>
+      </div>
+      <div class="arch-layer l2">
+        <div class="arch-name">音频处理层</div>
+        <div class="arch-items">
+          <span class="arch-chip">SBC 编解码</span>
+          <span class="arch-chip">AAC 解码</span>
+          <span class="arch-chip">mSBC 编解码</span>
+          <span class="arch-chip">CVSD 编解码</span>
+          <span class="arch-chip">MP3 解码</span>
+          <span class="arch-chip">混音引擎</span>
+          <span class="arch-chip">bt_decode.c</span>
+        </div>
+      </div>
+      <div class="arch-layer l3">
+        <div class="arch-name">应用逻辑层</div>
+        <div class="arch-items">
+          <span class="arch-chip">模式管理</span>
+          <span class="arch-chip">按键处理</span>
+          <span class="arch-chip">LED 指示</span>
+          <span class="arch-chip">音量控制</span>
+          <span class="arch-chip">App_mode.c</span>
+          <span class="arch-chip">mp3_play.c</span>
+        </div>
+      </div>
+      <div class="arch-layer l4">
+        <div class="arch-name">存储管理层</div>
+        <div class="arch-items">
+          <span class="arch-chip">SD 卡 FATFS</span>
+          <span class="arch-chip">USB MSD</span>
+          <span class="arch-chip">VM 配对存储</span>
+          <span class="arch-chip">VFS 文件系统</span>
+        </div>
+      </div>
+      <div class="arch-layer l5">
+        <div class="arch-name">硬件驱动层</div>
+        <div class="arch-items">
+          <span class="arch-chip">GPIO</span>
+          <span class="arch-chip">PWM</span>
+          <span class="arch-chip">气泵控制</span>
+          <span class="arch-chip">DAC 四声道</span>
+          <span class="arch-chip">ADC MIC</span>
+          <span class="arch-chip">Inf_key.c</span>
+          <span class="arch-chip">Inf_led.c</span>
+          <span class="arch-chip">Inf_extern.c</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Init Flow ── -->
+  <section id="init-flow">
+    <h2>系统启动流程</h2>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>app_main()</strong> — 程序入口，初始化蓝牙和模式系统</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>bt_ble_module_init()</strong> — 初始化蓝牙模块（经典蓝牙 + SPP）</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>SD 卡初始化</strong> — sdcard_storage_device_ready("sd0")，挂载到 "storage/sd0"</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>App_mode_init()</strong> — 初始化按键（PA1）和振动 PWM，LED 全亮测试</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">5</div>
+        <div class="flow-text"><strong>usr_timer_add(App_key_mode, 10)</strong> — 注册 10 ms 按键扫描定时器</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">6</div>
+        <div class="flow-text"><strong>os_task_create(mp3_play_task)</strong> — 创建 MP3 提示音播放任务</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">7</div>
+        <div class="flow-text"><strong>os_task_create(mode_play_task)</strong> — 创建模式执行任务</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Tasks ── -->
+  <section id="tasks">
+    <h2>RTOS 任务配置</h2>
+    <p>系统采用实时操作系统管理 16 个并行任务，优先级数字越大越高。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>任务名</th><th>优先级</th><th>栈大小</th><th>消息队列</th><th>功能</th></tr>
+        <tr><td class="td-code">sys_event</td><td>29（高）</td><td>512 B</td><td>0</td><td>系统事件分发</td></tr>
+        <tr><td class="td-code">audio_mix</td><td>28</td><td>512 B</td><td>0</td><td>音频混音引擎</td></tr>
+        <tr><td class="td-code">btctrler</td><td>19</td><td>512 B</td><td>384</td><td>蓝牙控制器</td></tr>
+        <tr><td class="td-code">btstack</td><td>18</td><td>768 B</td><td>384</td><td>蓝牙协议栈</td></tr>
+        <tr><td class="td-code">audio_server</td><td>16</td><td>512 B</td><td>64</td><td>音频服务器管理</td></tr>
+        <tr><td class="td-code">app_core</td><td>15</td><td>1 KB</td><td>256</td><td>应用核心逻辑</td></tr>
+        <tr><td class="td-code">btencry</td><td>14</td><td>512 B</td><td>128</td><td>蓝牙加密处理</td></tr>
+        <tr><td class="td-code">systimer</td><td>14</td><td>256 B</td><td>0</td><td>系统时基任务</td></tr>
+        <tr><td class="td-code">vir_dev_task</td><td>13</td><td>256 B</td><td>0</td><td>虚拟设备任务</td></tr>
+        <tr><td class="td-code">cvsd_encoder</td><td>13</td><td>512 B</td><td>0</td><td>CVSD 编码（通话）</td></tr>
+        <tr><td class="td-code">aec_encoder</td><td>13</td><td>1 KB</td><td>0</td><td>回声消除编码</td></tr>
+        <tr><td class="td-code">msbc_encoder</td><td>13</td><td>256 B</td><td>0</td><td>mSBC 编码（宽带语音）</td></tr>
+        <tr><td class="td-code">sbc_encoder</td><td>13</td><td>512 B</td><td>0</td><td>SBC 编码（音乐）</td></tr>
+        <tr><td class="td-code">audio_encoder</td><td>12</td><td>384 B</td><td>64</td><td>音频编码器管理</td></tr>
+        <tr><td class="td-code">sys_timer</td><td>9</td><td>512 B</td><td>64</td><td>软件定时管理</td></tr>
+        <tr><td class="td-code">usb_msd1</td><td>1（低）</td><td>512 B</td><td>128</td><td>USB 大容量存储</td></tr>
+      </table>
+    </div>
+    <div class="notice">
+      蓝牙任务（18-19）优先级较高，确保连接稳定；音频编码（12-13）次高，保证实时性；USB 存储（1）最低优先级，不影响音频。
+    </div>
+  </section>
+
+  <!-- ── Hardware ── -->
+  <section id="hardware">
+    <h2>硬件框图</h2>
+    <p>AC7916AB SoC 集成双核 PI32V2 R3 CPU、蓝牙 5.0 射频、四声道 DAC 和丰富外设。</p>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">&#x1F4BB;</div>
+        <div class="card-title">核心芯片</div>
+        <div class="card-desc">
+          杰理 AC7916AB<br>
+          PI32V2 R3 双核 CPU<br>
+          Bluetooth 5.0 RF
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">&#x1F50A;</div>
+        <div class="card-title">音频输出</div>
+        <div class="card-desc">
+          4 声道 DAC<br>
+          非差分输出<br>
+          VCM 延迟 3000ms
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">&#x1F3A4;</div>
+        <div class="card-title">音频输入</div>
+        <div class="card-desc">
+          MIC1 差分输入<br>
+          PH08/PH09 引脚<br>
+          单声道 ADC
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">&#x1F4BE;</div>
+        <div class="card-title">存储接口</div>
+        <div class="card-desc">
+          SD/MMC 24MHz<br>
+          USB OTG (MSD)<br>
+          FATFS 文件系统
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── GPIO ── -->
+  <section id="gpio">
+    <h2>GPIO 配置详解</h2>
+    <div class="pin-map">
+      <h4>Port A 配置</h4>
+      <div class="pin-grid">
+        <div class="pin-item"><div class="pin-name">PA01</div><div class="pin-func">ADKEY - 模拟按键输入</div></div>
+        <div class="pin-item"><div class="pin-name">PA02</div><div class="pin-func">LED1 - 状态指示灯 1</div></div>
+        <div class="pin-item"><div class="pin-name">PA03</div><div class="pin-func">LED2 - 状态指示灯 2</div></div>
+        <div class="pin-item"><div class="pin-name">PA04</div><div class="pin-func">LED3 - 状态指示灯 3</div></div>
+        <div class="pin-item"><div class="pin-name">PA05</div><div class="pin-func">LED4 - 状态指示灯 4</div></div>
+      </div>
+      <h4>Port B 配置</h4>
+      <div class="pin-grid">
+        <div class="pin-item"><div class="pin-name">PB01</div><div class="pin-func">ADKEY - 模拟按键复用</div></div>
+        <div class="pin-item"><div class="pin-name">PB02</div><div class="pin-func">SD_DETECT - SD 卡检测</div></div>
+        <div class="pin-item"><div class="pin-name">PB03</div><div class="pin-func">UART2_RX - 调试串口接收</div></div>
+        <div class="pin-item"><div class="pin-name">PB04</div><div class="pin-func">UART2_TX - 调试串口发送</div></div>
+        <div class="pin-item"><div class="pin-name">PB05</div><div class="pin-func">SD_D0 - SD 卡数据线</div></div>
+        <div class="pin-item"><div class="pin-name">PB06</div><div class="pin-func">SD_CMD - SD 卡命令线</div></div>
+        <div class="pin-item"><div class="pin-name">PB07</div><div class="pin-func">SD_CLK - SD 卡时钟线</div></div>
+      </div>
+      <h4>Port C 配置</h4>
+      <div class="pin-grid">
+        <div class="pin-item"><div class="pin-name">PC00</div><div class="pin-func">PWM1 - 震动电机 1</div></div>
+        <div class="pin-item"><div class="pin-name">PC01</div><div class="pin-func">PWM2 - 震动电机 2</div></div>
+        <div class="pin-item"><div class="pin-name">PC02</div><div class="pin-func">HOT1 - 加热片 1</div></div>
+        <div class="pin-item"><div class="pin-name">PC03</div><div class="pin-func">HOT2 - 加热片 2</div></div>
+        <div class="pin-item"><div class="pin-name">PC04</div><div class="pin-func">PUMP - 气泵控制</div></div>
+        <div class="pin-item"><div class="pin-name">PC05</div><div class="pin-func">INPUT - 充气阀门</div></div>
+        <div class="pin-item"><div class="pin-name">PC06</div><div class="pin-func">OUTPUT - 放气阀门</div></div>
+      </div>
+      <h4>Port H 配置</h4>
+      <div class="pin-grid">
+        <div class="pin-item"><div class="pin-name">PH07</div><div class="pin-func">LED5 - 额外状态指示灯</div></div>
+        <div class="pin-item"><div class="pin-name">PH08/PH09</div><div class="pin-func">MIC1_P/MIC1_N - 差分 MIC</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Audio HW ── -->
+  <section id="audio-hw">
+    <h2>音频硬件配置</h2>
+    <div class="table-wrap">
+      <table>
+        <tr><th>模块</th><th>配置项</th><th>值/描述</th></tr>
+        <tr><td rowspan="4"><strong>DAC</strong></td><td>硬件通道</td><td>BIT(0) | BIT(1) | BIT(2) | BIT(3) — 四声道</td></tr>
+        <tr><td>通道数</td><td>4 声道环绕声</td></tr>
+        <tr><td>差分输出</td><td>禁用</td></tr>
+        <tr><td>VCM 初始化延迟</td><td>3000 ms</td></tr>
+        <tr><td rowspan="4"><strong>ADC</strong></td><td>MIC 通道</td><td>LADC_CH_MIC1_P_N — MIC1 差分</td></tr>
+        <tr><td>MIC 通道数</td><td>1</td></tr>
+        <tr><td>LINEIN 通道</td><td>未启用</td></tr>
+        <tr><td>ISEL</td><td>2</td></tr>
+      </table>
+    </div>
+<pre><code>// board.c - 音频硬件配置
+.hw_channel    = BIT(0) | BIT(1) | BIT(2) | BIT(3),  // 四声道
+.ch_num        = 4,
+.differ_output = 0,                                    // 非差分
+.vcm_init_delay_ms = 3000,
+
+.mic_channel = LADC_CH_MIC1_P_N,  // MIC1 差分输入
+.mic_ch_num  = 1,
+.isel        = 2,</code></pre>
+  </section>
+
+  <!-- ── Bluetooth ── -->
+  <section id="bluetooth">
+    <h2>蓝牙模块</h2>
+
+    <h3>功能配置</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>功能</th><th>状态</th><th>说明</th></tr>
+        <tr><td>经典蓝牙 BT Classic</td><td>&#10003; 启用</td><td>A2DP 音乐 + HFP 电话 + SPP 数传</td></tr>
+        <tr><td>蓝牙低能耗 BLE</td><td>&#10007; 禁用</td><td>节省代码空间</td></tr>
+        <tr><td>蓝牙发射 Emitter</td><td>&#10003; 启用</td><td>可切换为声源发射器</td></tr>
+        <tr><td>SNIFF 低功耗</td><td>&#10003; 启用</td><td>降低待机耗电</td></tr>
+        <tr><td>SPP 透传</td><td>&#10003; 启用</td><td>蓝牙 APP 与设备通信</td></tr>
+      </table>
+    </div>
+
+    <h3>支持的 Profile</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">A2DP</div>
+        <div class="card-desc">高级音频分发，蓝牙音乐播放</div>
+      </div>
+      <div class="card">
+        <div class="card-title">HFP / HFP_AG</div>
+        <div class="card-desc">免提协议，通话 + 音频网关（发射器）</div>
+      </div>
+      <div class="card">
+        <div class="card-title">AVRCP</div>
+        <div class="card-desc">音频视频远程控制</div>
+      </div>
+      <div class="card">
+        <div class="card-title">SPP</div>
+        <div class="card-desc">串口协议，数据透传</div>
+      </div>
+    </div>
+
+    <h3>双模切换</h3>
+    <p>通过 <code>emitter_or_receiver_switch(flag)</code> 实现发射器/接收器模式切换：</p>
+<pre><code>// bt_emitter.c - 模式切换
+emitter_or_receiver_switch(1);  // flag=1: 发射器模式
+emitter_or_receiver_switch(2);  // flag=2: 接收器模式</code></pre>
+
+    <h3>按键事件处理</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>按键</th><th>短按</th><th>长按 (&gt;2s)</th></tr>
+        <tr><td><strong>OK</strong></td><td>播放/暂停/接听/挂断</td><td>—</td></tr>
+        <tr><td><strong>VOL-</strong></td><td>音量减小</td><td>上一曲</td></tr>
+        <tr><td><strong>VOL+</strong></td><td>音量增加</td><td>下一曲</td></tr>
+        <tr><td><strong>MODE</strong></td><td>蓝牙开/关</td><td>发射器/接收器切换</td></tr>
+      </table>
+    </div>
+
+    <h3>音量管理</h3>
+<pre><code>// bt_music.c - 音量控制
+音量范围: 5 - 100 (最小 5，最大 100，初始 50)
+音量步进: 5
+
+bt_music_set_volume_step(step)
+├── media_volume     // 媒体音量
+└── call_volume      // 通话音量
+
+同步命令:
+├── USER_CTRL_CMD_SYNC_VOL_INC  // 音量+
+└── USER_CTRL_CMD_SYNC_VOL_DEC  // 音量-
+
+蓝牙通话音量: 0-15 级别 (需转换)</code></pre>
+  </section>
+
+  <!-- ── Emitter ── -->
+  <section id="emitter">
+    <h2>发射器模式</h2>
+    <p>bt_emitter.c（895 行）实现蓝牙音频发射功能，支持设备搜索、过滤和自动连接。</p>
+
+    <h3>设备搜索流程</h3>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>bt_search_device()</strong> — 设置不可发现/不可连接，发起搜索（25.6 秒）</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>emitter_search_result()</strong> — 搜索回调，按名字/地址过滤设备</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>无名字设备处理</strong> — 加入 inquiry_noname_list，异步获取名字</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>匹配成功</strong> — 停止搜索并自动连接，PinCode 轮询配对</div>
+      </div>
+    </div>
+
+<pre><code>// 过滤设备列表
+bd_name_filt[] = {
+    "JL-AC79XX-AF0B",
+    "JL-AC79XX-AAFF",
+    "JL-AC79XX-FFAA"
+};
+
+// PinCode 轮询列表
+pin_code_list[10][4] = {
+    "0000", "1234", "8888", "1314", "4321",
+    "1111", "2222", "3333", "5678", "5555"
+};</code></pre>
+  </section>
+
+  <!-- ── Sniff ── -->
+  <section id="sniff">
+    <h2>Sniff 低功耗模式</h2>
+    <div class="table-wrap">
+      <table>
+        <tr><th>参数</th><th>值</th><th>说明</th></tr>
+        <tr><td class="td-code">SNIFF_CNT_TIME</td><td>5 秒</td><td>空闲后进入 Sniff 的等待时间</td></tr>
+        <tr><td class="td-code">SNIFF_MAX_INTERVALSLOT</td><td>800</td><td>最大间隔 800 ms</td></tr>
+        <tr><td class="td-code">SNIFF_MIN_INTERVALSLOT</td><td>100</td><td>最小间隔 100 ms</td></tr>
+        <tr><td class="td-code">SNIFF_ATTEMPT_SLOT</td><td>4</td><td>尝试次数</td></tr>
+        <tr><td class="td-code">SNIFF_TIMEOUT_SLOT</td><td>1</td><td>超时时间</td></tr>
+      </table>
+    </div>
+    <div class="notice ok">
+      <strong>进入条件：</strong>空闲时间 &gt; 5 秒且连接设备支持 Sniff。<br>
+      <strong>退出条件：</strong>有数据传输需求或断开连接。
+    </div>
+  </section>
+
+  <!-- ── Audio ── -->
+  <section id="audio">
+    <h2>音频系统</h2>
+
+    <h3>音频编解码格式</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>格式</th><th>编码</th><th>解码</th><th>用途</th></tr>
+        <tr><td><strong>SBC</strong></td><td>&#10003;</td><td>&#10003;</td><td>蓝牙音频（A2DP 基础格式）</td></tr>
+        <tr><td><strong>AAC</strong></td><td>&#10007;</td><td>&#10003;</td><td>蓝牙高质量音频</td></tr>
+        <tr><td><strong>MP3</strong></td><td>&#10003;</td><td>&#10003;</td><td>本地提示音播放/录音</td></tr>
+        <tr><td><strong>mSBC</strong></td><td>&#10003;</td><td>&#10003;</td><td>蓝牙宽带通话</td></tr>
+        <tr><td><strong>CVSD</strong></td><td>&#10003;</td><td>&#10003;</td><td>蓝牙通话</td></tr>
+      </table>
+    </div>
+
+    <h3>A2DP 音乐播放流程</h3>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>蓝牙接收</strong> — 手机通过 A2DP 协议发送音频流</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>RTP 解析</strong> — 提取音频包，解析 RTP 头部</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>音频解码</strong> — 支持 SBC / AAC 多格式实时解码</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>混音处理</strong> — 与本地提示音混音，应用音量控制（5–100，步长 5）</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">5</div>
+        <div class="flow-text"><strong>DAC 输出</strong> — 四声道环绕声输出到扬声器</div>
+      </div>
+    </div>
+
+    <h3>模式提示音文件</h3>
+<pre><code>// 提示音路径配置（SD 卡）
+#define CONFIG_VOICE_PROMPT_FILE_PATH "storage/sd0/C/tone/"
+
+Mode1.mp3     // 舒适模式提示
+Mode2.mp3     // 加热模式提示
+Mode3.mp3     // 振动模式提示
+Mode4.mp3     // 激情模式提示
+shutdown.mp3  // 关机提示音</code></pre>
+  </section>
+
+  <!-- ── Storage ── -->
+  <section id="storage">
+    <h2>存储系统</h2>
+
+    <h3>SD 卡配置</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>配置项</th><th>值</th><th>描述</th></tr>
+        <tr><td>使能状态</td><td class="td-code">TCFG_SD0_ENABLE = 1</td><td>启用 SD0</td></tr>
+        <tr><td>端口</td><td class="td-code">'A' (PB5-PB7)</td><td>Port A 引脚</td></tr>
+        <tr><td>数据宽度</td><td>1</td><td>单线模式</td></tr>
+        <tr><td>检测模式</td><td class="td-code">SD_IO_DECT</td><td>IO 检测模式</td></tr>
+        <tr><td>检测 IO</td><td class="td-code">IO_PORTB_02</td><td>SD 卡插入检测</td></tr>
+        <tr><td>时钟频率</td><td>24 MHz</td><td>SD 卡时钟</td></tr>
+        <tr><td>挂载路径</td><td class="td-code">"storage/sd0"</td><td>VFS 挂载点</td></tr>
+      </table>
+    </div>
+
+<pre><code>// app_main.c - SD 卡初始化
+#if TCFG_SD0_ENABLE
+    if (sdcard_storage_device_ready("sd0")) {
+        puts("SD card mounted OK\n");
+    } else {
+        puts("SD card mount FAIL\n");
+    }
+#endif</code></pre>
+
+    <h3>VM 配置存储</h3>
+    <div class="notice ok">
+      VM (Virtual Memory) 用于保存蓝牙配对信息：<code>CFG_REMOTE_DN_00 ~ CFG_REMOTE_DN_END</code> 存储远端设备名字，
+      <code>restore_remote_device_info_profile()</code> 恢复配对设备，<code>emitter_save_remote_name()</code> 保存配对名字。
+    </div>
+  </section>
+
+  <!-- ── USB ── -->
+  <section id="usb">
+    <h2>USB 系统</h2>
+
+    <h3>USB 从机配置</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>配置项</th><th>值</th><th>描述</th></tr>
+        <tr><td>使能状态</td><td class="td-code">TCFG_PC_ENABLE = 1</td><td>启用 USB 从机</td></tr>
+        <tr><td>设备类</td><td class="td-code">MASSSTORAGE_CLASS</td><td>大容量存储类</td></tr>
+        <tr><td>供应商</td><td>"JL"</td><td>厂商标识</td></tr>
+        <tr><td>产品</td><td>"UDISK"</td><td>产品名称</td></tr>
+        <tr><td>版本</td><td>"1.00"</td><td>固件版本</td></tr>
+        <tr><td>OTG 模式</td><td class="td-code">OTG_SLAVE_MODE</td><td>从机模式</td></tr>
+        <tr><td>检测间隔</td><td>50 ms</td><td>OTG 检测周期</td></tr>
+      </table>
+    </div>
+
+<pre><code>// USB Mass Storage Class
+USB 设备描述:
+├── 设备描述符
+├── 配置描述符
+├── 接口描述符 (Mass Storage)
+├── 端点描述符 (Bulk IN/OUT)
+└── SCSI 命令处理
+    ├── READ_CAPACITY
+    ├── READ_10
+    ├── WRITE_10
+    └── INQUIRY</code></pre>
+  </section>
+
+  <!-- ── Peripherals ── -->
+  <section id="peripherals">
+    <h2>外设驱动</h2>
+    <div class="notice ok">
+      项目通过 <code>Inf/</code>（Interface）目录实现硬件抽象，统一的接口定义使代码易于维护和移植。
+    </div>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">&#x1F518;</div>
+        <div class="card-title">按键驱动</div>
+        <div class="card-desc">
+          Inf_key.c/h<br>
+          Pin: PA1（上拉输入）<br>
+          10 ms 采样周期<br>
+          50–2000 ms 短按，&gt;2000 ms 长按
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">&#x1F4A1;</div>
+        <div class="card-title">LED 驱动</div>
+        <div class="card-desc">
+          Inf_led.c/h<br>
+          Pins: PA2–PA5, PH7<br>
+          推挽输出，低电平点亮<br>
+          5 路独立控制
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">&#x1F527;</div>
+        <div class="card-title">扩展功能驱动</div>
+        <div class="card-desc">
+          Inf_extern.c/h<br>
+          Pins: PC0–PC6<br>
+          加热 + 振动 PWM + 气泵<br>
+          混合 GPIO/PWM 控制
+        </div>
+      </div>
+    </div>
+
+    <h3>LED 控制</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>LED</th><th>GPIO</th><th>点亮电平</th><th>对应模式</th></tr>
+        <tr><td>LED1</td><td class="td-code">PA2</td><td>LOW (0 V)</td><td>MODE_COMFORT 舒适</td></tr>
+        <tr><td>LED2</td><td class="td-code">PA3</td><td>LOW (0 V)</td><td>MODE_HOT 加热</td></tr>
+        <tr><td>LED3</td><td class="td-code">PA4</td><td>LOW (0 V)</td><td>MODE_VIBRATION 振动</td></tr>
+        <tr><td>LED4</td><td class="td-code">PA5</td><td>LOW (0 V)</td><td>MODE_PASSION 激情</td></tr>
+        <tr><td>LED5</td><td class="td-code">PH7</td><td>LOW (0 V)</td><td>额外状态指示</td></tr>
+      </table>
+    </div>
+
+    <h3>PWM 振动控制</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>参数</th><th>值</th><th>说明</th></tr>
+        <tr><td>频率</td><td>1000 Hz</td><td>周期 1 ms，适合马达驱动</td></tr>
+        <tr><td>占空比</td><td>25%</td><td>初始值，可动态调整</td></tr>
+        <tr><td>PWM1 引脚</td><td class="td-code">PC0 (PWMCH4_H)</td><td>振动马达通道 1</td></tr>
+        <tr><td>PWM2 引脚</td><td class="td-code">PC1 (TIMER2_OPCH2)</td><td>振动马达通道 2</td></tr>
+      </table>
+    </div>
+
+    <h3>气泵系统</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>功能</th><th>GPIO</th><th>启动电平</th><th>驱动对象</th></tr>
+        <tr><td>气泵电机</td><td class="td-code">PC4 (PUMP_PIN)</td><td>HIGH</td><td>气泵</td></tr>
+        <tr><td>充气阀</td><td class="td-code">PC5 (INPUT_PIN)</td><td>HIGH</td><td>充气电磁阀</td></tr>
+        <tr><td>放气阀</td><td class="td-code">PC6 (OUTPUT_PIN)</td><td>HIGH</td><td>放气电磁阀</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Modes ── -->
+  <section id="modes">
+    <h2>工作模式</h2>
+    <p>系统支持 5 种工作状态，通过按键短按循环切换，长按开关机：</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>模式</th><th>值</th><th>LED 指示</th><th>功能组合</th><th>适用场景</th></tr>
+        <tr><td><code>MODE_SHUT_DOWN</code></td><td>0</td><td>全灭</td><td>全部关闭</td><td>待机状态</td></tr>
+        <tr><td><code>MODE_COMFORT</code></td><td>1</td><td>LED1</td><td>气泵 + 缓慢充放气</td><td>舒适护理</td></tr>
+        <tr><td><code>MODE_HOT</code></td><td>2</td><td>LED1-2</td><td>气泵 + 加热</td><td>温热按摩</td></tr>
+        <tr><td><code>MODE_VIBRATION</code></td><td>3</td><td>LED1-3</td><td>气泵 + 振动 PWM</td><td>强效刺激</td></tr>
+        <tr><td><code>MODE_PASSION</code></td><td>4</td><td>LED1-4</td><td>气泵 + 加热 + 振动</td><td>全功能组合</td></tr>
+      </table>
+    </div>
+
+    <h3>模式切换逻辑</h3>
+<pre><code>// App_mode.c - App_switch_mode() 10ms 周期调用
+长按 KEY (&gt;2s):
+├── 关机状态 → 开机 (MODE_COMFORT)
+└── 开机状态 → 关机 (MODE_SHUT_DOWN)
+
+短按 KEY:
+├── 关机状态 → 无效
+└── 开机状态 → 模式循环
+    COMFORT → HOT → VIBRATION → PASSION → COMFORT</code></pre>
+
+    <h3>舒适模式气囊时序</h3>
+    <p>气囊充放气循环周期 1.8 秒（180 × 10 ms），分为四个阶段：</p>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>缓慢放气（0–60 计数，0.6 秒）</strong> — 间歇放气，防止残留气体伤害</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>快速放气（60–90 计数，0.3 秒）</strong> — 持续放气，彻底清空气囊</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>快速充气（90–120 计数，0.3 秒）</strong> — 关闭放气阀，气囊快速膨胀</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>缓慢充气（120–180 计数，0.6 秒）</strong> — 周期性充气，微调压力，循环重置</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Power ── -->
+  <section id="power">
+    <h2>电源管理</h2>
+
+    <h3>低功耗配置</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>配置项</th><th>值</th><th>描述</th></tr>
+        <tr><td>低功耗使能</td><td class="td-code">CONFIG_LOWPOWER_ENABLE</td><td>启用低功耗模式</td></tr>
+        <tr><td>BTOSC</td><td class="td-code">TCFG_LOWPOWER_BTOSC_DISABLE = 0</td><td>保持 BTOSC</td></tr>
+        <tr><td>强 VDDIO</td><td class="td-code">VDDIOM_VOL_28V</td><td>2.8 V</td></tr>
+        <tr><td>弱 VDDIO</td><td class="td-code">VDDIOW_VOL_32V</td><td>3.2 V（RTC 需要）</td></tr>
+        <tr><td>VDC 1.4V</td><td class="td-code">VDC14_VOL_SEL_140V</td><td>RF 1.4 V</td></tr>
+        <tr><td>内核电压</td><td class="td-code">SYSVDD_VOL_SEL_126V</td><td>1.26 V</td></tr>
+      </table>
+    </div>
+
+<pre><code>// app_config.h - 睡眠模式
+TCFG_LOWPOWER_LOWPOWER_SEL =
+    RF_SLEEP_EN |           // RF 模块睡眠
+    SYS_SLEEP_EN |          // 系统睡眠
+    RF_FORCE_SYS_SLEEP_EN | // 强制 RF 系统睡眠
+    SYS_SLEEP_BY_IDLE       // 空闲时睡眠
+
+// 电源保持
+power_keep_state():
+├── POWER_KEEP_RESET   // 保持复位状态
+└── POWER_KEEP_DACVDD  // 保持 DAC 电源
+
+sleep_enter_callback(step):
+└── step == 1: dac_power_off()  // 关闭 DAC 电源</code></pre>
+  </section>
+
+  <!-- ── Build ── -->
+  <section id="build">
+    <h2>编译构建</h2>
+
+    <h3>工具链配置</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>工具</th><th>路径</th><th>用途</th></tr>
+        <tr><td>CC / CXX</td><td class="td-code">C:/JL/pi32/bin/clang.exe</td><td>C/C++ 编译器</td></tr>
+        <tr><td>LD</td><td class="td-code">C:/JL/pi32/bin/pi32v2-lto-wrapper.exe</td><td>链接器</td></tr>
+        <tr><td>AR</td><td class="td-code">C:/JL/pi32/bin/llvm-ar.exe</td><td>静态库生成</td></tr>
+      </table>
+    </div>
+
+    <h3>编译参数</h3>
+<pre><code>CFLAGS:
+├── -target pi32v2        // 目标架构
+├── -mcpu=r3              // CPU 版本 R3
+├── -mfprev1              // 启用 FPREV1 扩展
+├── -Oz                   // 优化代码大小
+├── -g                    // 调试信息
+├── -flto                 // 链接时优化
+├── -fprefer-gnu-section  // 优先 GNU 段
+├── -femulated-tls        // 模拟 TLS
+└── -mllvm -pi32v2-large-program=true  // 大程序支持</code></pre>
+
+    <h3>核心宏定义</h3>
+<pre><code>// Makefile 核心宏
+├── CONFIG_CPU_WL82            // CPU 型号
+├── CONFIG_FREE_RTOS_ENABLE    // FreeRTOS
+├── CONFIG_BT_ENABLE=1         // 蓝牙使能
+├── CONFIG_AUDIO_ENABLE        // 音频使能
+├── TCFG_USB_SLAVE_ENABLE=1    // USB 从机
+├── TCFG_USB_SLAVE_MSD_ENABLE=1  // USB MSD
+├── VFS_ENABLE=1               // 虚拟文件系统
+├── CONFIG_JLFAT_ENABLE        // JL 文件系统
+└── VM_ITEM_MAX_NUM=256        // VM 最大项数</code></pre>
+
+    <h3>编译命令</h3>
+<pre><code>Make 命令:
+├── make              // 编译并下载
+├── make VERBOSE=1    // 显示详细编译过程
+├── make clean        // 清除编译临时文件
+└── make LINK_AT=0    // 禁用@文件链接
+
+输出文件:
+├── sdk.elf           // 可执行文件
+├── sdk.map           // 内存映射文件
+└── sdk.bin (后处理)  // 可烧录固件</code></pre>
+  </section>
+
+  <!-- ── API ── -->
+  <section id="api">
+    <h2>API 参考</h2>
+
+    <h3>蓝牙 API</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>函数</th><th>文件</th><th>描述</th></tr>
+        <tr><td class="td-code">bt_ble_module_init()</td><td>bt_music.c</td><td>初始化蓝牙模块</td></tr>
+        <tr><td class="td-code">bt_search_device()</td><td>bt_emitter.c</td><td>搜索蓝牙设备</td></tr>
+        <tr><td class="td-code">emitter_or_receiver_switch(flag)</td><td>bt_emitter.c</td><td>切换发射/接收模式</td></tr>
+        <tr><td class="td-code">bt_emitter_pp(play)</td><td>bt_emitter.c</td><td>播放/暂停控制</td></tr>
+        <tr><td class="td-code">bt_connection_enable()</td><td>bt_music.c</td><td>启用蓝牙连接</td></tr>
+        <tr><td class="td-code">bt_connection_disable()</td><td>bt_music.c</td><td>禁用蓝牙连接</td></tr>
+      </table>
+    </div>
+
+    <h3>音频 API</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>函数</th><th>文件</th><th>描述</th></tr>
+        <tr><td class="td-code">app_play_tone_file(path)</td><td>SDK</td><td>播放提示音文件</td></tr>
+        <tr><td class="td-code">earphone_a2dp_audio_codec_open()</td><td>SDK</td><td>打开 A2DP 音频编解码器</td></tr>
+        <tr><td class="td-code">earphone_a2dp_audio_codec_close()</td><td>SDK</td><td>关闭 A2DP 音频编解码器</td></tr>
+        <tr><td class="td-code">phone_call_begin()</td><td>SDK</td><td>开始通话编解码</td></tr>
+        <tr><td class="td-code">phone_call_end()</td><td>SDK</td><td>结束通话编解码</td></tr>
+        <tr><td class="td-code">a2dp_sbc_encoder_init()</td><td>bt_music.c</td><td>发射器 SBC 编码初始化</td></tr>
+      </table>
+    </div>
+
+    <h3>应用模式 API</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>函数</th><th>文件</th><th>描述</th></tr>
+        <tr><td class="td-code">App_mode_init()</td><td>App_mode.c</td><td>应用模式初始化</td></tr>
+        <tr><td class="td-code">App_switch_mode()</td><td>App_mode.c</td><td>模式切换判断（10ms 周期）</td></tr>
+        <tr><td class="td-code">App_mode_set_led(mode)</td><td>App_mode.c</td><td>设置 LED 指示</td></tr>
+        <tr><td class="td-code">App_mp3_play()</td><td>App_mode.c</td><td>播放模式提示音</td></tr>
+        <tr><td class="td-code">App_mode_play()</td><td>App_mode.c</td><td>执行模式功能（50ms 周期）</td></tr>
+      </table>
+    </div>
+
+    <h3>外设驱动 API</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>函数</th><th>文件</th><th>描述</th></tr>
+        <tr><td class="td-code">Inf_led_turn_on(led)</td><td>Inf_led.c</td><td>点亮 LED（低电平）</td></tr>
+        <tr><td class="td-code">Inf_led_turn_off(led)</td><td>Inf_led.c</td><td>熄灭 LED（高电平）</td></tr>
+        <tr><td class="td-code">Inf_key_init()</td><td>Inf_key.c</td><td>按键初始化</td></tr>
+        <tr><td class="td-code">Inf_key_get_event()</td><td>Inf_key.c</td><td>获取按键事件（10ms 周期）</td></tr>
+        <tr><td class="td-code">Inf_Shock_Init()</td><td>Inf_extern.c</td><td>震动初始化</td></tr>
+        <tr><td class="td-code">Inf_Shock_Start()</td><td>Inf_extern.c</td><td>启动震动</td></tr>
+        <tr><td class="td-code">Inf_Shock_Stop()</td><td>Inf_extern.c</td><td>停止震动</td></tr>
+        <tr><td class="td-code">Inf_extern_hot_turn_on()</td><td>Inf_extern.c</td><td>开启加热</td></tr>
+        <tr><td class="td-code">Inf_extern_hot_turn_off()</td><td>Inf_extern.c</td><td>关闭加热</td></tr>
+        <tr><td class="td-code">Inf_start_PUMP()</td><td>Inf_extern.c</td><td>启动气泵</td></tr>
+        <tr><td class="td-code">Inf_stop_PUMP()</td><td>Inf_extern.c</td><td>停止气泵</td></tr>
+        <tr><td class="td-code">Inf_start_input()</td><td>Inf_extern.c</td><td>打开充气阀</td></tr>
+        <tr><td class="td-code">Inf_stop_output()</td><td>Inf_extern.c</td><td>关闭放气阀</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Files ── -->
+  <section id="files">
+    <h2>文件结构</h2>
+    <div class="table-wrap">
+      <table>
+        <tr><th>文件</th><th>行数</th><th>功能描述</th></tr>
+        <tr><td class="td-code">app_main.c</td><td>178</td><td>程序入口，任务创建，蓝牙事件分发</td></tr>
+        <tr><td class="td-code">bt_music.c</td><td>1211</td><td>蓝牙音乐播放、音量控制、自动连接</td></tr>
+        <tr><td class="td-code">bt_decode.c</td><td>994</td><td>音频解码器（SBC/AAC/CVSD/mSBC）</td></tr>
+        <tr><td class="td-code">bt_emitter.c</td><td>895</td><td>蓝牙发射器，设备搜索与连接管理</td></tr>
+        <tr><td class="td-code">App/App_mode.c</td><td>335</td><td>模式管理核心，气泵/LED/音乐控制</td></tr>
+        <tr><td class="td-code">mp3_play.c</td><td>70</td><td>本地 MP3 提示音播放</td></tr>
+        <tr><td class="td-code">spp_trans_data.c</td><td>267</td><td>SPP 透传数据通道</td></tr>
+        <tr><td class="td-code">Inf/Inf_key.c</td><td>56</td><td>按键扫描与去抖（PA1，10 ms）</td></tr>
+        <tr><td class="td-code">Inf/Inf_led.c</td><td>24</td><td>5 路 LED 控制（PA2–PA5, PH7）</td></tr>
+        <tr><td class="td-code">Inf/Inf_extern.c</td><td>139</td><td>加热、振动 PWM、气泵三合一控制</td></tr>
+        <tr><td class="td-code">board/wl82/board.c</td><td>150+</td><td>硬件平台配置（UART/PWM/ADC/USB）</td></tr>
+        <tr><td class="td-code">include/app_config.h</td><td>106</td><td>全局编译配置（蓝牙、音频、功耗等）</td></tr>
+        <tr><td class="td-code">include/bt_emitter.h</td><td>—</td><td>蓝牙发射器头文件</td></tr>
+      </table>
+    </div>
+
+    <div class="notice warn">
+      <strong>已知 Bug：</strong>App_mode.c 第 81 行 <code>else if (mode_type = MODE_PASSION)</code> 应为 <code>==</code>，
+      赋值操作导致条件永远为真，需修复。
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  AC7916AB 蓝牙声控设备 &nbsp;·&nbsp; 基于杰理 AC79NN_SDK_V1.2.0 &nbsp;·&nbsp; demo_edr 应用 &nbsp;·&nbsp; 多功能蓝牙音频方案
+</footer>
+</main>
+
+<script>
+  // ── Menu Toggle ──
+  const toggle = document.getElementById('menu-toggle');
+  toggle.addEventListener('click', () => {
+    document.body.classList.toggle('menu-open');
+  });
+
+  // ── Active link on scroll ──
+  const sections = document.querySelectorAll('section[id]');
+  const links = document.querySelectorAll('.sidebar-link');
+
+  function updateActive() {
+    let current = '';
+    sections.forEach(sec => {
+      const top = sec.getBoundingClientRect().top;
+      if (top <= 80) current = sec.id;
+    });
+    links.forEach(a => {
+      const isActive = a.getAttribute('href') === '#' + current;
+      a.classList.toggle('active', isActive);
+      if (isActive) a.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+  }
+
+  document.getElementById('main').addEventListener('scroll', updateActive);
+  window.addEventListener('scroll', updateActive);
+
+  // ── Copy button ──
+  document.querySelectorAll('pre').forEach(pre => {
+    const btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.title = '复制代码';
+    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    btn.addEventListener('click', () => {
+      const code = pre.querySelector('code') ? pre.querySelector('code').innerText : pre.innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        btn.classList.add('copied');
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+        }, 2000);
+      });
+    });
+    pre.appendChild(btn);
+  });
+
+  // ── Smooth scroll ──
+  links.forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (window.innerWidth < 700) document.body.classList.remove('menu-open');
+    });
+  });
+</script>
+</body>
+</html>

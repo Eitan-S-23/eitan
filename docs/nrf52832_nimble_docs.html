@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NRF52832-NimBLE · 项目文档</title>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --border: #e8e8e8;
+      --text: #1a1a1a;
+      --muted: #888;
+      --accent: #2d6be4;
+      --accent-light: #eef3fd;
+      --tag-bg: #f0f0f0;
+      --sidebar-w: 260px;
+      --header-h: 52px;
+      --radius: 6px;
+      --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Courier New', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    /* ── Header ── */
+    #header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 16px;
+      z-index: 100;
+    }
+
+    #menu-toggle {
+      width: 36px; height: 36px;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 4px;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    #menu-toggle:hover { background: var(--tag-bg); }
+    #menu-toggle span {
+      display: block;
+      width: 16px; height: 1.5px;
+      background: var(--text);
+      border-radius: 2px;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    body.menu-open #menu-toggle span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+    body.menu-open #menu-toggle span:nth-child(2) { opacity: 0; }
+    body.menu-open #menu-toggle span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+
+    #brand {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -.2px;
+      color: var(--text);
+    }
+    #brand sup {
+      font-size: 10px;
+      font-weight: 400;
+      color: var(--muted);
+      margin-left: 6px;
+    }
+
+    .header-meta {
+      margin-left: auto;
+      display: flex; gap: 8px;
+    }
+    .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: var(--accent-light);
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      position: fixed;
+      top: var(--header-h); left: 0; bottom: 0;
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      transform: translateX(0);
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 90;
+      padding: 16px 0 32px;
+    }
+    body:not(.menu-open) #sidebar { transform: translateX(calc(-1 * var(--sidebar-w))); }
+
+    .sidebar-section { margin-bottom: 8px; }
+    .sidebar-section-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 8px 20px 4px;
+    }
+    .sidebar-link {
+      display: block;
+      padding: 6px 20px;
+      color: #444;
+      text-decoration: none;
+      font-size: 13px;
+      border-left: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .sidebar-link:hover {
+      color: var(--accent);
+      background: var(--accent-light);
+      border-left-color: var(--accent);
+    }
+    .sidebar-link.active {
+      color: var(--accent);
+      background: var(--accent-light);
+      border-left-color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* ── Main ── */
+    #main {
+      margin-top: var(--header-h);
+      margin-left: var(--sidebar-w);
+      transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      min-height: calc(100vh - var(--header-h));
+    }
+    body:not(.menu-open) #main { margin-left: 0; }
+
+    .content {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 48px 32px 80px;
+    }
+
+    /* ── Sections ── */
+    section { margin-bottom: 64px; }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -.5px;
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+
+    h2 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 24px 0 10px;
+    }
+
+    p { color: #444; margin-bottom: 12px; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Hero ── */
+    .hero-desc {
+      font-size: 16px;
+      color: #555;
+      max-width: 600px;
+      line-height: 1.8;
+      margin-bottom: 28px;
+    }
+    .hero-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px; }
+    .tag {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: var(--tag-bg);
+      color: #555;
+    }
+
+    /* ── Cards ── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+    .card-icon {
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .card-desc {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th {
+      text-align: left;
+      padding: 8px 12px;
+      background: #f5f5f5;
+      border: 1px solid var(--border);
+      font-weight: 600;
+      color: #555;
+    }
+    td {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      color: #444;
+      vertical-align: top;
+    }
+    tr:hover td { background: #fafafa; }
+    .td-code {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: #f8f8f8;
+      color: #c0392b;
+    }
+
+    /* ── Code ── */
+    pre {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      border-radius: var(--radius);
+      padding: 20px;
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.7;
+      margin: 16px 0;
+      position: relative;
+    }
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 28px;
+      height: 28px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s, background 0.15s;
+      color: #cdd6f4;
+      padding: 0;
+    }
+    pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { background: rgba(255,255,255,0.18); }
+    .copy-btn.copied { color: #a6e3a1; border-color: #a6e3a1; }
+    code {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      background: #f3f3f3;
+      border-radius: 3px;
+      padding: 1px 5px;
+      color: #c0392b;
+    }
+    pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+
+    /* ── Arch diagram ── */
+    .arch {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin: 16px 0;
+    }
+    .arch-layer {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .arch-layer:last-child { border-bottom: none; }
+    .arch-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      min-width: 110px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .arch-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .arch-chip {
+      font-size: 11.5px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: var(--tag-bg);
+      color: #444;
+    }
+    .arch-layer.l1 { background: #eef3fd; }
+    .arch-layer.l1 .arch-chip { background: #d0e1fd; color: #1a4db7; }
+    .arch-layer.l2 { background: #f0faf5; }
+    .arch-layer.l2 .arch-chip { background: #c2edd8; color: #1a6648; }
+    .arch-layer.l3 { background: #fdf8ee; }
+    .arch-layer.l3 .arch-chip { background: #fae6b0; color: #7a5200; }
+    .arch-layer.l4 { background: #fdf3f0; }
+    .arch-layer.l4 .arch-chip { background: #f9cfc8; color: #8b1c0e; }
+    .arch-layer.l5 { background: #f8f0fe; }
+    .arch-layer.l5 .arch-chip { background: #e1c7fc; color: #5b1fa3; }
+
+    /* ── Stats ── */
+    .stats { display: flex; gap: 16px; flex-wrap: wrap; margin: 20px 0; }
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 24px;
+      min-width: 120px;
+      text-align: center;
+    }
+    .stat-num {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -.5px;
+    }
+    .stat-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Flow ── */
+    .flow {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin: 16px 0;
+    }
+    .flow-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px dashed #eee;
+    }
+    .flow-step:last-child { border-bottom: none; }
+    .flow-num {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .flow-text { font-size: 13px; color: #444; }
+    .flow-text strong { color: var(--text); }
+
+    /* ── Notice ── */
+    .notice {
+      border-left: 3px solid var(--accent);
+      background: var(--accent-light);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 16px;
+      margin: 16px 0;
+      font-size: 13px;
+      color: #335;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 32px;
+      font-size: 12px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── Pipeline ── */
+    .pipeline { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin: 16px 0; }
+    .pipeline-step { display: flex; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #eee; }
+    .pipeline-step:last-child { border-bottom: none; }
+    .pipeline-step:nth-child(odd) { background: var(--surface); }
+    .pipeline-step:nth-child(even) { background: #f8f8f8; }
+    .pipeline-num {
+      width: 28px; height: 28px; border-radius: 50%; background: var(--accent);
+      color: #fff; font-size: 13px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 2px;
+    }
+    .pipeline-content { flex: 1; min-width: 0; }
+    .pipeline-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+    .pipeline-desc { font-size: 13px; color: #555; margin-bottom: 6px; }
+    .pipeline-out {
+      display: inline-block; font-size: 11.5px; font-family: var(--mono);
+      color: var(--accent); background: var(--accent-light);
+      border-radius: 4px; padding: 2px 8px; margin: 4px 0;
+    }
+    .pipeline-file { font-size: 11px; font-family: var(--mono); color: var(--muted); margin-top: 6px; }
+
+    /* ── Sidebar sublink ── */
+    .sidebar-sublink {
+      display: block; padding: 3px 20px 3px 30px;
+      color: #888; text-decoration: none; font-size: 12px;
+      border-left: 2px solid transparent; transition: all 0.15s;
+    }
+    .sidebar-sublink:hover { color: var(--accent); background: var(--accent-light); border-left-color: var(--accent); }
+    .sidebar-sublink.active { color: var(--accent); background: var(--accent-light); border-left-color: var(--accent); }
+
+    /* ── Collapsible sidebar item ── */
+    .sidebar-expand-row { display: flex; align-items: stretch; }
+    .sidebar-expand-row .sidebar-link { flex: 1; padding-right: 2px; }
+    .sidebar-chevron {
+      width: 28px; flex-shrink: 0; margin-right: 6px;
+      background: none; border: none; cursor: pointer;
+      color: var(--muted); font-size: 18px; font-weight: 300;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 3px; padding: 0; line-height: 1;
+      transition: transform 0.22s ease, color 0.15s, background 0.15s;
+    }
+    .sidebar-chevron:hover { color: var(--accent); background: var(--accent-light); }
+    .sidebar-expandable.open .sidebar-chevron { transform: rotate(90deg); }
+    .sidebar-submenu {
+      overflow: hidden; max-height: 0;
+      transition: max-height 0.28s ease-in-out;
+    }
+    .sidebar-expandable.open .sidebar-submenu { max-height: 400px; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 700px) {
+      .content { padding: 28px 18px 60px; }
+      h1 { font-size: 24px; }
+      .stats { gap: 10px; }
+      .card-grid { grid-template-columns: 1fr 1fr; }
+      .arch-layer { flex-direction: column; align-items: flex-start; gap: 8px; }
+    }
+  </style>
+</head>
+<body class="menu-open">
+
+<!-- Header -->
+<header id="header">
+  <button id="menu-toggle" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div id="brand">NRF52832-NimBLE <sup>RT-Thread · Apache NimBLE</sup></div>
+  <div class="header-meta">
+    <span class="badge">v1.0</span>
+    <span class="badge">BLE 5.0</span>
+  </div>
+</header>
+
+<!-- Sidebar -->
+<nav id="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">概览</div>
+    <a class="sidebar-link active" href="#overview">项目简介</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">快速开始</div>
+    <a class="sidebar-link" href="#setup">环境搭建</a>
+    <a class="sidebar-link" href="#compile">编译和烧写</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">项目结构</div>
+    <a class="sidebar-link" href="#arch">整体架构</a>
+    <a class="sidebar-link" href="#structure">目录结构详解</a>
+    <a class="sidebar-link" href="#components">核心组件</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">核心概念</div>
+    <a class="sidebar-link" href="#nimble">NimBLE 协议栈</a>
+    <a class="sidebar-link" href="#rtthread">RT-Thread 集成</a>
+    <a class="sidebar-link" href="#gatt">GATT 服务设计</a>
+    <a class="sidebar-link" href="#gap">GAP 广播与连接</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">API 参考</div>
+    <a class="sidebar-link" href="#api-ble">蓝牙 API</a>
+    <a class="sidebar-link" href="#api-config">配置 API</a>
+  </div>
+</nav>
+
+<!-- Main Content -->
+<main id="main">
+<div class="content">
+
+  <!-- ── Overview ── -->
+  <section id="overview">
+    <div class="section-label">Project Overview</div>
+    <h1>NRF52832-NimBLE</h1>
+    <p class="hero-desc">
+      基于 Nordic nRF52832 微控制器的 BLE 5.0 项目，集成 Apache NimBLE 完整协议栈（Host + Controller）
+      与 RT-Thread 4.0 实时操作系统，无需 SoftDevice 固件依赖，完整实现 GAP、GATT、SM 协议，
+      支持 Keil MDK5 和 GCC + SCons 双工具链编译。
+    </p>
+    <div class="hero-tags">
+      <span class="tag">Nordic nRF52832</span>
+      <span class="tag">Apache NimBLE</span>
+      <span class="tag">RT-Thread 4.0</span>
+      <span class="tag">BLE 5.0</span>
+      <span class="tag">GAP · GATT · SM</span>
+      <span class="tag">Keil MDK5</span>
+      <span class="tag">GCC + SCons</span>
+      <span class="tag">无 SoftDevice</span>
+    </div>
+    <div class="notice">
+      协议栈: Apache NimBLE (Apache License 2.0) &nbsp;·&nbsp;
+      RTOS: RT-Thread 4.0.0 &nbsp;·&nbsp;
+      芯片: Nordic nRF52832 (ARM Cortex-M4F) &nbsp;·&nbsp;
+      完整 Host + Controller 软件实现，不依赖 Nordic SoftDevice
+    </div>
+  </section>
+
+  <!-- ── Setup ── -->
+  <section id="setup">
+    <h2>环境搭建</h2>
+    <h3>硬件要求</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>组件</th><th>规格</th><th>说明</th></tr>
+        <tr><td>MCU</td><td>Nordic nRF52832</td><td>ARM Cortex-M4F，512 KB Flash，64 KB RAM</td></tr>
+        <tr><td>开发板</td><td>任意 nRF52832 开发板</td><td>如 PCA10040</td></tr>
+        <tr><td>调试器</td><td>J-Link</td><td>用于烧写和在线调试</td></tr>
+        <tr><td>串口工具</td><td>任意 USB 转 TTL</td><td>查看调试输出，115200 波特率</td></tr>
+      </table>
+    </div>
+
+    <h3>软件工具链</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🔨</div>
+        <div class="card-title">方案 A：Keil MDK5（推荐）</div>
+        <div class="card-desc">
+          v5.30+，安装 nRF52 Device Pack<br>
+          在 Project → Options 配置 J-Link<br>
+          UI 友好，调试功能完整
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚙️</div>
+        <div class="card-title">方案 B：GCC + SCons</div>
+        <div class="card-desc">
+          ARM GCC 工具链 + Python SCons 构建<br>
+          跨平台支持，适合 CI/CD 流程<br>
+          命令行构建
+        </div>
+      </div>
+    </div>
+
+    <h3>依赖库</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>库</th><th>版本</th><th>说明</th></tr>
+        <tr><td>RT-Thread</td><td>4.0.0</td><td>RTOS 内核，已包含在项目中</td></tr>
+        <tr><td>Apache NimBLE</td><td>latest</td><td>BLE 协议栈，已包含在项目中</td></tr>
+        <tr><td>Nordic nrfx</td><td>-</td><td>硬件驱动抽象层，已包含</td></tr>
+        <tr><td>TinyCrypt</td><td>-</td><td>加密库，BLE SM 配对使用，已包含</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Compile ── -->
+  <section id="compile">
+    <h2>编译和烧写</h2>
+    <h3>使用 Keil MDK5 编译</h3>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text">在 Keil 中打开 <code>project.uvprojx</code></div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text">菜单 <strong>Project → Rebuild all</strong>（完全重编），或按 <code>F7</code> 快速编译</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text">编译完成后，输出文件在 <code>build/</code> 目录</div>
+      </div>
+    </div>
+
+    <h3>使用 GCC + SCons 编译</h3>
+<pre><code># 完整重编
+scons -c && scons
+
+# 增量编译
+scons</code></pre>
+
+    <h3>烧写固件</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">💾</div>
+        <div class="card-title">方法 1：Keil MDK5 下载</div>
+        <div class="card-desc">
+          连接 nRF52832 + J-Link<br>
+          Project → Download（Ctrl+F10）<br>
+          自动烧写到芯片 Flash
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔧</div>
+        <div class="card-title">方法 2：J-Link 命令行</div>
+        <div class="card-desc">
+          使用 JFlash 或 JLink Commander<br>
+          手动指定 .hex / .bin 文件<br>
+          适合批量烧写场景
+        </div>
+      </div>
+    </div>
+
+    <h3>验证烧写</h3>
+    <p>打开串口工具，波特率 <strong>115200</strong>，重启开发板后应看到 RT-Thread 启动信息及 NimBLE 初始化日志。</p>
+  </section>
+
+  <!-- ── Arch ── -->
+  <section id="arch">
+    <h2>整体架构</h2>
+    <p>项目采用标准分层架构，从上到下分为五层：</p>
+    <div class="arch">
+      <div class="arch-layer l1">
+        <div class="arch-name">应用层</div>
+        <div class="arch-items">
+          <span class="arch-chip">用户 BLE 应用代码</span>
+          <span class="arch-chip">心率传感器示例 (blehr)</span>
+        </div>
+      </div>
+      <div class="arch-layer l2">
+        <div class="arch-name">NimBLE Host</div>
+        <div class="arch-items">
+          <span class="arch-chip">GAP</span>
+          <span class="arch-chip">GATT</span>
+          <span class="arch-chip">L2CAP</span>
+          <span class="arch-chip">SM（配对加密）</span>
+          <span class="arch-chip">ble_hs.c</span>
+        </div>
+      </div>
+      <div class="arch-layer l3">
+        <div class="arch-name">NimBLE Controller</div>
+        <div class="arch-items">
+          <span class="arch-chip">Link Layer</span>
+          <span class="arch-chip">物理层驱动</span>
+          <span class="arch-chip">ble_ll.c</span>
+        </div>
+      </div>
+      <div class="arch-layer l4">
+        <div class="arch-name">RT-Thread RTOS</div>
+        <div class="arch-items">
+          <span class="arch-chip">线程调度</span>
+          <span class="arch-chip">信号量 / 互斥量</span>
+          <span class="arch-chip">内存管理</span>
+          <span class="arch-chip">FinSH Shell</span>
+        </div>
+      </div>
+      <div class="arch-layer l5">
+        <div class="arch-name">硬件驱动</div>
+        <div class="arch-items">
+          <span class="arch-chip">nrfx</span>
+          <span class="arch-chip">UART</span>
+          <span class="arch-chip">GPIO</span>
+          <span class="arch-chip">TIMER</span>
+          <span class="arch-chip">RADIO</span>
+          <span class="arch-chip">nRF52832 MCU</span>
+        </div>
+      </div>
+    </div>
+
+    <h3>内存布局</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>区域</th><th>地址</th><th>大小</th><th>说明</th></tr>
+        <tr><td>Flash</td><td class="td-code">0x00000000</td><td>512 KB</td><td>NimBLE 完整协议栈（无 SoftDevice）</td></tr>
+        <tr><td>RAM</td><td class="td-code">0x20000000</td><td>64 KB</td><td>运行时栈和堆</td></tr>
+        <tr><td>Host 线程栈</td><td>-</td><td>1.5 KB</td><td>ble_hs 线程专用栈</td></tr>
+        <tr><td>Controller 线程栈</td><td>-</td><td>1.0 KB</td><td>ble_ll 线程专用栈</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Structure ── -->
+  <section id="structure">
+    <h2>目录结构详解</h2>
+<pre><code>nrf52832-nimble/
+├── applications/              ← 用户应用层
+│   ├── application.c          ← main 函数入口
+│   └── SConscript
+├── drivers/                   ← 板级驱动
+│   ├── board.c/h              ← OS Tick、堆初始化
+│   ├── drv_gpio.c/h           ← GPIO 驱动
+│   ├── drv_uart.c/h           ← UART 调试串口
+│   └── nrfx_config.h          ← nrfx 配置
+├── packages/
+│   └── NimBLE-latest/         ← Apache NimBLE 协议栈
+│       ├── nimble/host/       ← Host 协议栈
+│       ├── nimble/controller/ ← Controller 协议栈
+│       ├── apps/blehr/        ← 心率传感器示例
+│       └── porting/           ← OS 移植层
+├── rt-thread/                 ← RT-Thread 4.0 内核
+└── project.uvprojx            ← Keil MDK5 工程</code></pre>
+
+    <h3>关键目录说明</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">applications/</div>
+        <div class="card-desc">存放用户应用代码，main 函数是程序入口点</div>
+      </div>
+      <div class="card">
+        <div class="card-title">packages/NimBLE-latest/</div>
+        <div class="card-desc">完整的 NimBLE 协议栈实现（Apache 许可证）</div>
+      </div>
+      <div class="card">
+        <div class="card-title">drivers/</div>
+        <div class="card-desc">板级驱动和硬件配置，包含 GPIO、UART、OS Tick</div>
+      </div>
+      <div class="card">
+        <div class="card-title">rt-thread/</div>
+        <div class="card-desc">RT-Thread 内核源码，版本 4.0.0</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Components ── -->
+  <section id="components">
+    <h2>核心组件</h2>
+
+    <h3>NimBLE Host Stack</h3>
+    <div class="card">
+      <div class="card-title">源码位置与配置</div>
+      <p>源码：<code>packages/NimBLE-latest/nimble/host/src/</code><br>
+      线程栈 <strong>1.5 KB</strong>，优先级 6（中等）</p>
+      <div class="table-wrap">
+        <table>
+          <tr><th>核心文件</th><th>功能</th></tr>
+          <tr><td class="td-code">ble_hs.c</td><td>Host 主流程、初始化</td></tr>
+          <tr><td class="td-code">ble_gap.c</td><td>GAP 广播/扫描/连接管理</td></tr>
+          <tr><td class="td-code">ble_gatt*.c</td><td>GATT 服务端/客户端</td></tr>
+          <tr><td class="td-code">ble_sm.c</td><td>配对和加密管理</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <h3>NimBLE Controller</h3>
+    <div class="card">
+      <div class="card-title">软件 Link Layer 实现</div>
+      <p>源码：<code>packages/NimBLE-latest/nimble/controller/src/</code><br>
+      线程栈 <strong>1.0 KB</strong>，优先级 7（比 Host 高）<br>
+      纯软件实现，不依赖 SoftDevice 固件</p>
+    </div>
+
+    <h3>RT-Thread RTOS</h3>
+    <div class="card">
+      <div class="card-title">实时操作系统内核 v4.0.0</div>
+      <p>核心功能：</p>
+      <ul style="margin-left: 20px; margin-top: 8px; color: #444;">
+        <li>线程调度（32 个优先级）</li>
+        <li>同步原语（信号量、互斥量、事件组）</li>
+        <li>内存管理（堆管理 + 内存池）</li>
+        <li>Shell / FinSH 交互命令行</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ── NimBLE ── -->
+  <section id="nimble">
+    <h2>NimBLE 协议栈详解</h2>
+    <p>Apache NimBLE 是一个完整、轻量级的开源 BLE 5.0 协议栈，包含 Host 和 Controller 完整实现，无需外部 SoftDevice，设计用于资源受限的物联网设备。</p>
+
+    <h3>主要特点</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">✅</div>
+        <div class="card-title">完整性</div>
+        <div class="card-desc">包含 Host 和 Controller 完整实现，无需 SoftDevice</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚡</div>
+        <div class="card-title">轻量级</div>
+        <div class="card-desc">为资源受限的 IoT 设备设计，内存占用极低</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔓</div>
+        <div class="card-title">开源</div>
+        <div class="card-desc">Apache 2.0 许可证，源码完全可获取和修改</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📶</div>
+        <div class="card-title">BLE 5.0</div>
+        <div class="card-desc">支持最新蓝牙标准，1 Msym/s 和 2 Msym/s 两种速率</div>
+      </div>
+    </div>
+
+    <h3>协议层次</h3>
+    <div class="arch">
+      <div class="arch-layer l1">
+        <div class="arch-name">GATT / GAP</div>
+        <div class="arch-items">
+          <span class="arch-chip">Service / Characteristic</span>
+          <span class="arch-chip">广播 / 连接</span>
+          <span class="arch-chip">设备发现</span>
+        </div>
+      </div>
+      <div class="arch-layer l2">
+        <div class="arch-name">L2CAP / SM</div>
+        <div class="arch-items">
+          <span class="arch-chip">逻辑链路控制</span>
+          <span class="arch-chip">配对加密</span>
+          <span class="arch-chip">安全管理</span>
+        </div>
+      </div>
+      <div class="arch-layer l3">
+        <div class="arch-name">HCI</div>
+        <div class="arch-items">
+          <span class="arch-chip">Host-Controller 接口</span>
+          <span class="arch-chip">命令 / 事件</span>
+        </div>
+      </div>
+      <div class="arch-layer l4">
+        <div class="arch-name">Link Layer</div>
+        <div class="arch-items">
+          <span class="arch-chip">信道选择</span>
+          <span class="arch-chip">广告包</span>
+          <span class="arch-chip">连接建立</span>
+          <span class="arch-chip">数据包重传</span>
+        </div>
+      </div>
+      <div class="arch-layer l5">
+        <div class="arch-name">PHY</div>
+        <div class="arch-items">
+          <span class="arch-chip">2.4 GHz 射频</span>
+          <span class="arch-chip">1 Msym/s (BLE 4.x)</span>
+          <span class="arch-chip">2 Msym/s (BLE 5.0)</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── RT-Thread ── -->
+  <section id="rtthread">
+    <h2>RT-Thread 集成</h2>
+    <p>RT-Thread 是一个开源、轻量级的实时操作系统，本项目使用 4.0.0 版本。</p>
+
+    <h3>系统启动流程</h3>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>Boot Code（汇编）</strong> — 设置栈指针，跳转到 C 启动代码</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>rt_hw_board_init()</strong> — 驱动初始化：os_tick_init()、rt_system_heap_init()、rt_components_board_init()</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>main()</strong> — 应用入口，初始化 NimBLE 和用户代码</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>rt_thread_idle()</strong> — 任务调度开始，NimBLE Host/Controller 线程运行</div>
+      </div>
+    </div>
+
+    <h3>NimBLE 线程配置</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>线程名</th><th>栈大小</th><th>优先级</th><th>职责</th></tr>
+        <tr><td class="td-code">ble_hs</td><td>1536 B</td><td>6（中等）</td><td>处理 GAP、GATT、SM 等高层协议</td></tr>
+        <tr><td class="td-code">ble_ll</td><td>1024 B</td><td>7（较高）</td><td>处理 Link Layer、PHY 等底层协议</td></tr>
+      </table>
+    </div>
+
+    <h3>内存管理</h3>
+    <p>RT-Thread 使用 malloc-style 堆管理，堆范围从 BSS 段末尾到 <code>0x20010000</code>（RAM 末尾，64 KB 总容量）。NimBLE 数据包缓冲池通过 mbuf 机制动态分配。</p>
+  </section>
+
+  <!-- ── GATT ── -->
+  <section id="gatt">
+    <h2>GATT 服务设计</h2>
+    <p>GATT（Generic Attribute Profile）是蓝牙的应用层接口，通过 Service 和 Characteristic 组织数据。</p>
+
+    <h3>核心概念</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">Service（服务）</div>
+        <div class="card-desc">
+          一组相关功能的集合，由 UUID 标识<br>
+          Heart Rate Service (0x180D)<br>
+          Battery Service (0x180F)<br>
+          Custom Service（自定义 128-bit UUID）
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Characteristic（特性）</div>
+        <div class="card-desc">
+          Service 内的数据项，包含 Value（数据）、Properties（读/写/通知权限）、Descriptors（额外信息）
+        </div>
+      </div>
+    </div>
+
+    <h3>GATT 服务定义示例</h3>
+<pre><code>#include "host/ble_hs.h"
+
+/* GATT 服务和特性定义 */
+static const struct ble_gatt_svc_def gatt_svcs[] = {
+    {
+        .type = BLE_GATT_SVC_TYPE_PRIMARY,
+        .uuid = BLE_UUID16_DECLARE(0x180D),   /* Heart Rate Service */
+        .characteristics = (struct ble_gatt_chr_def[]) {
+            {
+                .uuid      = BLE_UUID16_DECLARE(0x2A37),
+                .access_cb = gatt_svr_chr_access,
+                .flags     = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
+            },
+            { .uuid = NULL }  /* 终止符 */
+        }
+    },
+    { .type = BLE_GATT_SVC_TYPE_END }  /* 终止符 */
+};</code></pre>
+  </section>
+
+  <!-- ── GAP ── -->
+  <section id="gap">
+    <h2>GAP 广播与连接</h2>
+    <p>GAP（Generic Access Profile）处理设备发现和连接管理，定义了四个主要角色：</p>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>角色</th><th>行为</th><th>典型用途</th></tr>
+        <tr><td><strong>Peripheral（外设）</strong></td><td>广播信号，接受连接</td><td>传感器、手环等</td></tr>
+        <tr><td><strong>Central（中心）</strong></td><td>扫描发现，主动连接</td><td>手机、网关等</td></tr>
+        <tr><td><strong>Broadcaster（广播者）</strong></td><td>仅广播，不接受连接</td><td>Beacon 等</td></tr>
+        <tr><td><strong>Observer（观察者）</strong></td><td>仅扫描，不连接</td><td>数据采集器等</td></tr>
+      </table>
+    </div>
+
+    <h3>启动广播示例</h3>
+<pre><code>static void start_advertising(void) {
+    struct ble_gap_adv_params adv_params;
+    struct ble_hs_adv_fields fields;
+
+    /* 设置广告数据 */
+    memset(&amp;fields, 0, sizeof(fields));
+    fields.flags             = BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP;
+    fields.name              = (uint8_t *)"MyDevice";
+    fields.name_len          = strlen("MyDevice");
+    fields.name_is_complete  = 1;
+
+    ble_gap_adv_set_fields(&amp;fields);
+
+    /* 启动广播：通用可发现，永久广播 */
+    memset(&amp;adv_params, 0, sizeof(adv_params));
+    adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
+    adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
+
+    ble_gap_adv_start(BLE_OWN_ADDR_PUBLIC, NULL, BLE_HS_FOREVER,
+                      &amp;adv_params, gap_event_callback, NULL);
+}</code></pre>
+  </section>
+
+  <!-- ── API BLE ── -->
+  <section id="api-ble">
+    <h2>蓝牙 API 参考</h2>
+
+    <h3>核心初始化</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>函数</th><th>说明</th></tr>
+        <tr><td><code>ble_hs_init()</code></td><td>初始化 Host 栈</td></tr>
+        <tr><td><code>ble_hs_start()</code></td><td>启动 Host</td></tr>
+        <tr><td><code>ble_hs_thread_startup()</code></td><td>创建 Host 线程</td></tr>
+      </table>
+    </div>
+
+    <h3>GAP API</h3>
+    <div class="card">
+      <div class="card-title">ble_gap_adv_start() — 启动 BLE 广播</div>
+      <p>原型：<code>int ble_gap_adv_start(uint8_t own_addr_type, const ble_addr_t *direct_addr, int32_t duration_ms, const struct ble_gap_adv_params *adv_params, ble_gap_event_fn *cb, void *cb_arg)</code></p>
+      <p>返回值：0 = 成功，非 0 = 错误代码</p>
+    </div>
+    <div class="card">
+      <div class="card-title">ble_gap_disc() — 扫描 BLE 设备</div>
+      <p>作为 Central 角色发起扫描，发现周围的 Peripheral 设备</p>
+    </div>
+    <div class="card">
+      <div class="card-title">ble_gap_connect() — 发起连接</div>
+      <p>作为 Central 角色主动连接远端 Peripheral 设备</p>
+    </div>
+
+    <h3>GATT Server API</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>函数</th><th>说明</th></tr>
+        <tr><td><code>ble_gatts_add_svcs()</code></td><td>添加 GATT 服务定义数组</td></tr>
+        <tr><td><code>ble_gatts_chr_updated()</code></td><td>通知特性值已更改（触发 Notify/Indicate）</td></tr>
+        <tr><td><code>ble_gattc_notify_custom()</code></td><td>发送 Notify（无需 ACK）</td></tr>
+        <tr><td><code>ble_gattc_indicate_custom()</code></td><td>发送 Indicate（需要 ACK）</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── API Config ── -->
+  <section id="api-config">
+    <h2>配置 API</h2>
+    <p>编译时配置通过 <code>rtconfig.h</code> 完成，以下为主要配置项：</p>
+
+    <h3>NimBLE 角色配置</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>配置项</th><th>说明</th><th>默认值</th></tr>
+        <tr><td class="td-code">PKG_NIMBLE_ROLE_PERIPHERAL</td><td>启用外设角色</td><td>✓ 启用</td></tr>
+        <tr><td class="td-code">PKG_NIMBLE_ROLE_CENTRAL</td><td>启用中心角色</td><td>✓ 启用</td></tr>
+        <tr><td class="td-code">PKG_NIMBLE_ROLE_BROADCASTER</td><td>启用广播者角色</td><td>✓ 启用</td></tr>
+        <tr><td class="td-code">PKG_NIMBLE_ROLE_OBSERVER</td><td>启用观察者角色</td><td>✓ 启用</td></tr>
+      </table>
+    </div>
+
+    <h3>Host 与 Controller 配置</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>配置项</th><th>说明</th><th>建议值</th></tr>
+        <tr><td class="td-code">PKG_NIMBLE_HOST</td><td>启用 Host 栈</td><td>✓ 启用</td></tr>
+        <tr><td class="td-code">PKG_NIMBLE_HOST_THREAD_STACK_SIZE</td><td>Host 线程栈大小（字节）</td><td>1536</td></tr>
+        <tr><td class="td-code">PKG_NIMBLE_HOST_THREAD_PRIORITY</td><td>Host 线程优先级</td><td>6</td></tr>
+        <tr><td class="td-code">PKG_NIMBLE_MAX_CONNECTIONS</td><td>最大并发连接数</td><td>1（可改为 4/8）</td></tr>
+        <tr><td class="td-code">PKG_NIMBLE_CTLR</td><td>启用 Controller</td><td>✓ 启用</td></tr>
+        <tr><td class="td-code">PKG_NIMBLE_CTLR_THREAD_STACK_SIZE</td><td>Controller 线程栈大小</td><td>1024</td></tr>
+        <tr><td class="td-code">PKG_NIMBLE_CTLR_THREAD_PRIORITY</td><td>Controller 优先级</td><td>7</td></tr>
+        <tr><td class="td-code">PKG_NIMBLE_BSP_NRF52</td><td>nRF52 平台支持</td><td>✓ 启用</td></tr>
+      </table>
+    </div>
+
+    <h3>常见配置场景</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">增加最大连接数</div>
+        <div class="card-desc">修改 PKG_NIMBLE_MAX_CONNECTIONS 为 4，同时增加 Host 栈大小到 2048 字节</div>
+      </div>
+      <div class="card">
+        <div class="card-title">启用 Central 角色</div>
+        <div class="card-desc">确保 PKG_NIMBLE_ROLE_CENTRAL 启用，调用 ble_gap_disc() 扫描，ble_gap_connect() 连接目标设备</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  NRF52832-NimBLE &nbsp;·&nbsp; Apache NimBLE + RT-Thread 4.0 &nbsp;·&nbsp; Nordic nRF52832 (ARM Cortex-M4F) &nbsp;·&nbsp; Apache License 2.0
+</footer>
+</main>
+
+<script>
+  // ── Menu Toggle ──
+  const toggle = document.getElementById('menu-toggle');
+  toggle.addEventListener('click', () => {
+    document.body.classList.toggle('menu-open');
+  });
+
+  // ── Active link on scroll ──
+  const sections = document.querySelectorAll('section[id], h3[id]');
+  const links = document.querySelectorAll('.sidebar-link, .sidebar-sublink');
+
+  function updateActive() {
+    let current = '';
+    sections.forEach(sec => {
+      const top = sec.getBoundingClientRect().top;
+      if (top <= 80) current = sec.id;
+    });
+    links.forEach(a => {
+      const isActive = a.getAttribute('href') === '#' + current;
+      a.classList.toggle('active', isActive);
+      if (isActive) a.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+  }
+
+  document.getElementById('main').addEventListener('scroll', updateActive);
+  window.addEventListener('scroll', updateActive);
+
+  // ── Copy button ──
+  document.querySelectorAll('pre').forEach(pre => {
+    const btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.title = '复制代码';
+    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    btn.addEventListener('click', () => {
+      const code = pre.querySelector('code') ? pre.querySelector('code').innerText : pre.innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        btn.classList.add('copied');
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+        }, 2000);
+      });
+    });
+    pre.appendChild(btn);
+  });
+
+  // ── Smooth scroll ──
+  links.forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (window.innerWidth < 700) document.body.classList.remove('menu-open');
+    });
+  });
+
+  // ── Collapsible sidebar toggle ──
+  function toggleExpand(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('open');
+  }
+</script>
+</body>
+</html>

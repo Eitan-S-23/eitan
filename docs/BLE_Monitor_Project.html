@@ -1,0 +1,1569 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BLE Monitor · Flutter 蓝牙功耗监控应用技术文档</title>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --border: #e8e8e8;
+      --text: #1a1a1a;
+      --muted: #888;
+      --accent: #2d6be4;
+      --accent-light: #eef3fd;
+      --tag-bg: #f0f0f0;
+      --sidebar-w: 260px;
+      --header-h: 52px;
+      --radius: 6px;
+      --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Courier New', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    /* ── Header ── */
+    #header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 16px;
+      z-index: 100;
+    }
+
+    #menu-toggle {
+      width: 36px; height: 36px;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 4px;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    #menu-toggle:hover { background: var(--tag-bg); }
+    #menu-toggle span {
+      display: block;
+      width: 16px; height: 1.5px;
+      background: var(--text);
+      border-radius: 2px;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    body.menu-open #menu-toggle span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+    body.menu-open #menu-toggle span:nth-child(2) { opacity: 0; }
+    body.menu-open #menu-toggle span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+
+    #brand {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -.2px;
+      color: var(--text);
+    }
+    #brand sup {
+      font-size: 10px;
+      font-weight: 400;
+      color: var(--muted);
+      margin-left: 6px;
+    }
+
+    .header-meta {
+      margin-left: auto;
+      display: flex; gap: 8px;
+    }
+    .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: var(--accent-light);
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      position: fixed;
+      top: var(--header-h); left: 0; bottom: 0;
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      transform: translateX(0);
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 90;
+      padding: 16px 0 32px;
+    }
+    body:not(.menu-open) #sidebar { transform: translateX(calc(-1 * var(--sidebar-w))); }
+
+    .sidebar-section { margin-bottom: 8px; }
+    .sidebar-section-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 8px 20px 4px;
+    }
+    .sidebar-link {
+      display: block;
+      padding: 6px 20px;
+      color: #444;
+      text-decoration: none;
+      font-size: 13px;
+      border-left: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .sidebar-link:hover {
+      color: var(--accent);
+      background: var(--accent-light);
+      border-left-color: var(--accent);
+    }
+    .sidebar-link.active {
+      color: var(--accent);
+      background: var(--accent-light);
+      border-left-color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* ── Main ── */
+    #main {
+      margin-top: var(--header-h);
+      margin-left: var(--sidebar-w);
+      transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      min-height: calc(100vh - var(--header-h));
+    }
+    body:not(.menu-open) #main { margin-left: 0; }
+
+    .content {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 48px 32px 80px;
+    }
+
+    /* ── Sections ── */
+    section { margin-bottom: 64px; }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -.5px;
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+
+    h2 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 24px 0 10px;
+    }
+
+    p { color: #444; margin-bottom: 12px; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Hero ── */
+    .hero-desc {
+      font-size: 16px;
+      color: #555;
+      max-width: 600px;
+      line-height: 1.8;
+      margin-bottom: 28px;
+    }
+    .hero-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px; }
+    .tag {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: var(--tag-bg);
+      color: #555;
+    }
+
+    /* ── Cards ── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+    .card-icon {
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .card-desc {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th {
+      text-align: left;
+      padding: 8px 12px;
+      background: #f5f5f5;
+      border: 1px solid var(--border);
+      font-weight: 600;
+      color: #555;
+    }
+    td {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      color: #444;
+      vertical-align: top;
+    }
+    tr:hover td { background: #fafafa; }
+    .td-code {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: #f8f8f8;
+      color: #c0392b;
+    }
+
+    /* ── Code ── */
+    pre {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      border-radius: var(--radius);
+      padding: 20px;
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.7;
+      margin: 16px 0;
+      position: relative;
+    }
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 28px;
+      height: 28px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s, background 0.15s;
+      color: #cdd6f4;
+      padding: 0;
+    }
+    pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { background: rgba(255,255,255,0.18); }
+    .copy-btn.copied { color: #a6e3a1; border-color: #a6e3a1; }
+    code {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      background: #f3f3f3;
+      border-radius: 3px;
+      padding: 1px 5px;
+      color: #c0392b;
+    }
+    pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+
+    /* ── Arch diagram ── */
+    .arch {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin: 16px 0;
+    }
+    .arch-layer {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .arch-layer:last-child { border-bottom: none; }
+    .arch-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      min-width: 110px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .arch-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .arch-chip {
+      font-size: 11.5px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: var(--tag-bg);
+      color: #444;
+    }
+    .arch-layer.l1 { background: #eef3fd; }
+    .arch-layer.l1 .arch-chip { background: #d0e1fd; color: #1a4db7; }
+    .arch-layer.l2 { background: #f0faf5; }
+    .arch-layer.l2 .arch-chip { background: #c2edd8; color: #1a6648; }
+    .arch-layer.l3 { background: #fdf8ee; }
+    .arch-layer.l3 .arch-chip { background: #fae6b0; color: #7a5200; }
+    .arch-layer.l4 { background: #fdf3f0; }
+    .arch-layer.l4 .arch-chip { background: #f9cfc8; color: #8b1c0e; }
+    .arch-layer.l5 { background: #f8f0fe; }
+    .arch-layer.l5 .arch-chip { background: #e1c7fc; color: #5b1fa3; }
+
+    /* ── Stats ── */
+    .stats { display: flex; gap: 16px; flex-wrap: wrap; margin: 20px 0; }
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 24px;
+      min-width: 120px;
+      text-align: center;
+    }
+    .stat-num {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -.5px;
+    }
+    .stat-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Flow ── */
+    .flow {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin: 16px 0;
+    }
+    .flow-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px dashed #eee;
+    }
+    .flow-step:last-child { border-bottom: none; }
+    .flow-num {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .flow-text { font-size: 13px; color: #444; }
+    .flow-text strong { color: var(--text); }
+
+    /* ── Notice ── */
+    .notice {
+      border-left: 3px solid var(--accent);
+      background: var(--accent-light);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 16px;
+      margin: 16px 0;
+      font-size: 13px;
+      color: #335;
+    }
+    .notice.warn {
+      border-left-color: #e67e22;
+      background: #fef9f0;
+      color: #7a4500;
+    }
+    .notice.ok {
+      border-left-color: #27ae60;
+      background: #f0faf5;
+      color: #1a5c38;
+    }
+    .notice.err {
+      border-left-color: #e74c3c;
+      background: #fef0f0;
+      color: #7a1a1a;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 32px;
+      font-size: 12px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── Pipeline ── */
+    .pipeline { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin: 16px 0; }
+    .pipeline-step { display: flex; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #eee; }
+    .pipeline-step:last-child { border-bottom: none; }
+    .pipeline-step:nth-child(odd) { background: var(--surface); }
+    .pipeline-step:nth-child(even) { background: #f8f8f8; }
+    .pipeline-num {
+      width: 28px; height: 28px; border-radius: 50%; background: var(--accent);
+      color: #fff; font-size: 13px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 2px;
+    }
+    .pipeline-content { flex: 1; min-width: 0; }
+    .pipeline-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+    .pipeline-desc { font-size: 13px; color: #555; margin-bottom: 6px; }
+
+    /* ── Sidebar sublink ── */
+    .sidebar-sublink {
+      display: block; padding: 3px 20px 3px 30px;
+      color: #888; text-decoration: none; font-size: 12px;
+      border-left: 2px solid transparent; transition: all 0.15s;
+    }
+    .sidebar-sublink:hover { color: var(--accent); background: var(--accent-light); border-left-color: var(--accent); }
+    .sidebar-sublink.active { color: var(--accent); background: var(--accent-light); border-left-color: var(--accent); }
+
+    /* ── Collapsible sidebar item ── */
+    .sidebar-expand-row { display: flex; align-items: stretch; }
+    .sidebar-expand-row .sidebar-link { flex: 1; padding-right: 2px; }
+    .sidebar-chevron {
+      width: 28px; flex-shrink: 0; margin-right: 6px;
+      background: none; border: none; cursor: pointer;
+      color: var(--muted); font-size: 18px; font-weight: 300;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 3px; padding: 0; line-height: 1;
+      transition: transform 0.22s ease, color 0.15s, background 0.15s;
+    }
+    .sidebar-chevron:hover { color: var(--accent); background: var(--accent-light); }
+    .sidebar-expandable.open .sidebar-chevron { transform: rotate(90deg); }
+    .sidebar-submenu {
+      overflow: hidden; max-height: 0;
+      transition: max-height 0.28s ease-in-out;
+    }
+    .sidebar-expandable.open .sidebar-submenu { max-height: 400px; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 700px) {
+      .content { padding: 28px 18px 60px; }
+      h1 { font-size: 24px; }
+      .stats { gap: 10px; }
+      .card-grid { grid-template-columns: 1fr 1fr; }
+      .arch-layer { flex-direction: column; align-items: flex-start; gap: 8px; }
+    }
+  </style>
+</head>
+<body class="menu-open">
+
+<!-- Header -->
+<header id="header">
+  <button id="menu-toggle" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div id="brand">BLE Monitor <sup>Flutter 蓝牙功耗监控 · v1.0.0</sup></div>
+  <div class="header-meta">
+    <span class="badge">v1.0.0</span>
+    <span class="badge">Flutter</span>
+    <span class="badge">BLE</span>
+  </div>
+</header>
+
+<!-- Sidebar -->
+<nav id="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">概览</div>
+    <a class="sidebar-link active" href="#overview">项目概览</a>
+    <a class="sidebar-link" href="#stats">项目统计</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">系统架构</div>
+    <a class="sidebar-link" href="#architecture">分层设计</a>
+    <a class="sidebar-link" href="#dataflow">数据流向</a>
+    <a class="sidebar-link" href="#startup">启动流程</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">界面与导航</div>
+    <a class="sidebar-link" href="#navigation">导航结构</a>
+    <a class="sidebar-link" href="#pages">页面详解</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">核心功能</div>
+    <a class="sidebar-link" href="#bluetooth">BLE 扫描与连接</a>
+    <a class="sidebar-link" href="#packet">数据包格式</a>
+    <a class="sidebar-link" href="#crossplatform">跨平台适配</a>
+    <a class="sidebar-link" href="#monitoring">实时监控</a>
+    <a class="sidebar-link" href="#alerts">告警系统</a>
+    <a class="sidebar-link" href="#power">功耗统计</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">数据层</div>
+    <a class="sidebar-link" href="#models">数据模型</a>
+    <a class="sidebar-link" href="#database">数据库设计</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">附加功能</div>
+    <a class="sidebar-link" href="#remote">遥控功能</a>
+    <a class="sidebar-link" href="#cycling">骑行追踪</a>
+    <a class="sidebar-link" href="#ota">OTA 固件升级</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">参考</div>
+    <a class="sidebar-link" href="#dependencies">依赖库</a>
+    <a class="sidebar-link" href="#files">文件结构</a>
+  </div>
+</nav>
+
+<!-- Main Content -->
+<main id="main">
+<div class="content">
+
+  <!-- ── Overview ── -->
+  <section id="overview">
+    <div class="section-label">Project Overview</div>
+    <h1>BLE Monitor</h1>
+    <p class="hero-desc">
+      BLE Monitor 是一款基于 Flutter 的跨平台蓝牙低功耗（BLE）设备监控应用，
+      支持 Android、iOS 及 Windows 多端运行。应用能够实时扫描、连接 BLE 设备，
+      采集电流、电压、功率等传感器数据，提供精细化的功耗分析、历史图表、阈值告警及透传遥控等完整功能，
+      是面向功耗测量硬件设备的一体化移动管理平台。
+    </p>
+    <div class="hero-tags">
+      <span class="tag">Flutter 3.0+</span>
+      <span class="tag">Dart</span>
+      <span class="tag">BLE / 蓝牙低功耗</span>
+      <span class="tag">GetX 状态管理</span>
+      <span class="tag">SQLite 持久化</span>
+      <span class="tag">实时功耗监控</span>
+      <span class="tag">跨平台 Android/iOS/Windows</span>
+      <span class="tag">梯形积分法</span>
+      <span class="tag">告警推送</span>
+      <span class="tag">OTA 固件升级</span>
+      <span class="tag">MQTT 协议</span>
+      <span class="tag">GPS 骑行追踪</span>
+    </div>
+    <div class="notice">
+      项目名称: ble_monitor &nbsp;·&nbsp; 框架: Flutter 3.0+ / Dart &nbsp;·&nbsp;
+      状态管理: GetX &nbsp;·&nbsp; 数据库: SQLite v6 &nbsp;·&nbsp; 平台: Android · iOS · Windows
+    </div>
+  </section>
+
+  <!-- ── Stats ── -->
+  <section id="stats">
+    <h2>项目统计</h2>
+    <div class="stats">
+      <div class="stat"><div class="stat-num">46</div><div class="stat-label">Dart 源文件</div></div>
+      <div class="stat"><div class="stat-num">24</div><div class="stat-label">页面文件</div></div>
+      <div class="stat"><div class="stat-num">8</div><div class="stat-label">服务层文件</div></div>
+      <div class="stat"><div class="stat-num">3</div><div class="stat-label">控制器</div></div>
+      <div class="stat"><div class="stat-num">8</div><div class="stat-label">数据库表</div></div>
+      <div class="stat"><div class="stat-num">6</div><div class="stat-label">DB Schema 版本</div></div>
+      <div class="stat"><div class="stat-num">86400</div><div class="stat-label">单设备最大历史记录</div></div>
+      <div class="stat"><div class="stat-num">365</div><div class="stat-label">日功耗追踪天数</div></div>
+    </div>
+    <h3>代码规模</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>文件</th><th>行数（约）</th><th>说明</th></tr>
+        <tr><td class="td-code">monitor_controller.dart</td><td>1130</td><td>实时监控核心控制器，数据聚合与处理</td></tr>
+        <tr><td class="td-code">alert_service.dart</td><td>709</td><td>告警阈值检查与通知触发</td></tr>
+        <tr><td class="td-code">device_data.dart</td><td>750</td><td>设备数据模型与制造商数据解析器</td></tr>
+        <tr><td class="td-code">database_service.dart</td><td>600+</td><td>SQLite 数据库 CRUD 操作</td></tr>
+        <tr><td class="td-code">ble_controller.dart</td><td>500+</td><td>BLE 扫描、连接与状态管理</td></tr>
+        <tr><td class="td-code">bluetooth_service.dart</td><td>400+</td><td>跨平台蓝牙适配层</td></tr>
+        <tr><td class="td-code">main.dart</td><td>125</td><td>程序入口，GetX 服务注册</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Architecture ── -->
+  <section id="architecture">
+    <h2>系统架构</h2>
+    <p>项目采用 MVC 分层架构，结合 GetX 响应式状态管理，将 UI 展示、业务逻辑与数据访问彻底解耦，
+    并通过蓝牙适配器模式实现多平台无缝兼容。</p>
+    <div class="arch">
+      <div class="arch-layer l1">
+        <div class="arch-name">UI 展示层</div>
+        <div class="arch-items">
+          <span class="arch-chip">pages/ (24个页面)</span>
+          <span class="arch-chip">widgets/ (可复用组件)</span>
+          <span class="arch-chip">GetX Obx 响应式</span>
+          <span class="arch-chip">fl_chart 图表</span>
+          <span class="arch-chip">flutter_animate 动画</span>
+        </div>
+      </div>
+      <div class="arch-layer l2">
+        <div class="arch-name">控制器层</div>
+        <div class="arch-items">
+          <span class="arch-chip">BleController</span>
+          <span class="arch-chip">MonitorController</span>
+          <span class="arch-chip">RideController</span>
+          <span class="arch-chip">GetX 生命周期</span>
+        </div>
+      </div>
+      <div class="arch-layer l3">
+        <div class="arch-name">业务服务层</div>
+        <div class="arch-items">
+          <span class="arch-chip">AlertService</span>
+          <span class="arch-chip">NotificationService</span>
+          <span class="arch-chip">ScanSettingsService</span>
+          <span class="arch-chip">OtaService</span>
+          <span class="arch-chip">ResponsiveService</span>
+        </div>
+      </div>
+      <div class="arch-layer l4">
+        <div class="arch-name">数据访问层</div>
+        <div class="arch-items">
+          <span class="arch-chip">DatabaseService (SQLite)</span>
+          <span class="arch-chip">SharedPreferences</span>
+          <span class="arch-chip">DeviceData 模型</span>
+          <span class="arch-chip">RideModels</span>
+        </div>
+      </div>
+      <div class="arch-layer l5">
+        <div class="arch-name">平台适配层</div>
+        <div class="arch-items">
+          <span class="arch-chip">BluetoothAdapter (接口)</span>
+          <span class="arch-chip">FlutterBluePlusAdapter (Android/iOS)</span>
+          <span class="arch-chip">WinBleAdapter (Windows)</span>
+          <span class="arch-chip">PermissionHelper</span>
+        </div>
+      </div>
+    </div>
+
+    <h3>设计模式</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🔌</div>
+        <div class="card-title">适配器模式</div>
+        <div class="card-desc">BluetoothAdapter 抽象接口统一 FlutterBluePlus（移动端）与 WinBle（Windows）的 API 差异</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">👁️</div>
+        <div class="card-title">观察者模式</div>
+        <div class="card-desc">GetX RxList/RxBool 响应式变量，UI 通过 Obx() 自动订阅更新，无需手动 setState</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🏪</div>
+        <div class="card-title">单例模式</div>
+        <div class="card-desc">DatabaseService、AlertService 等通过 Get.put() 注册为全局单例，贯穿整个应用生命周期</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🏗️</div>
+        <div class="card-title">MVC 分层</div>
+        <div class="card-desc">Controller 管理业务逻辑，Model 定义数据结构，Page/Widget 只负责 UI 渲染</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Data Flow ── -->
+  <section id="dataflow">
+    <h2>数据流向</h2>
+    <p>从 BLE 设备的原始广播包到 UI 展示，数据经历完整的采集→解析→存储→告警→展示流程：</p>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>BLE 设备广播</strong> — 目标设备通过 BLE 广播包（Advertisement）持续发送制造商自定义数据（Manufacturer Data）</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>平台蓝牙层</strong> — FlutterBluePlus（移动端）或 WinBle（Windows）接收原始扫描结果，通过 BluetoothAdapter 统一封装</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>BleController 处理</strong> — <code>_parseDataPacket()</code> 解析字节流，提取电流值、单位、电压值，构造 DeviceData 对象</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>MonitorController 聚合</strong> — 接收 DeviceData，执行去重（1秒间隔）、频率限制（500ms），维护 SelectedDevice 数据历史</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">5</div>
+        <div class="flow-text"><strong>DatabaseService 持久化</strong> — 批量写入（10秒间隔）SQLite 数据库，保存时序数据与日/月功耗统计</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">6</div>
+        <div class="flow-text"><strong>AlertService 告警检查</strong> — 将最新数值与设备配置阈值对比，触发振动 / 声音 / 系统通知</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">7</div>
+        <div class="flow-text"><strong>UI 响应式更新</strong> — GetX Obx() 监听数据变化，MonitorPage、ChartPage、PowerStatsPage 自动刷新显示</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Startup ── -->
+  <section id="startup">
+    <h2>启动流程</h2>
+    <p>应用启动时依次完成权限申请、数据库初始化、服务注册与蓝牙初始化：</p>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>main()</strong> — 调用 <code>WidgetsFlutterBinding.ensureInitialized()</code>，注册全局 GetX 服务</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>DatabaseService.init()</strong> — 初始化 SQLite 数据库，执行 Schema 迁移（当前 v6）</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>NotificationService.init()</strong> — 初始化本地通知（移动端 flutter_local_notifications，Windows 端 local_notifier）</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>PermissionHelper.requestPermissions()</strong> — 申请蓝牙扫描、位置、通知等系统权限</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">5</div>
+        <div class="flow-text"><strong>BleController.initBluetooth()</strong> — 注册蓝牙状态监听，启动首次扫描，加载已保存设备列表</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">6</div>
+        <div class="flow-text"><strong>MainAppPage 渲染</strong> — 底部三标签导航就绪，扫描健康检查定时器（5秒）开始工作</div>
+      </div>
+    </div>
+<pre><code>// main.dart - 服务注册顺序
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 1. 数据库
+  await Get.putAsync(() => DatabaseService().init());
+
+  // 2. 通知服务
+  final notificationService = NotificationService();
+  await notificationService.init();
+  Get.put(notificationService);
+
+  // 3. 核心控制器（Permanent - 全应用生命周期）
+  Get.put(BleController(),      permanent: true);
+  Get.put(MonitorController(),  permanent: true);
+  Get.put(AlertService(),       permanent: true);
+
+  runApp(const MyApp());
+}</code></pre>
+  </section>
+
+  <!-- ── Navigation ── -->
+  <section id="navigation">
+    <h2>导航结构</h2>
+    <p>应用采用底部标签页 + 嵌套路由的导航方式，根部为三标签主页面，各功能子页面通过 GetX 命名路由跳转：</p>
+<pre><code>MainAppPage（底部三标签）
+├── [Tab 0] DeviceTabPage（设备管理）
+│   ├── HomePage              — BLE 扫描与设备列表
+│   │   ├── DeviceDetailPage  — 设备详细信息
+│   │   ├── MonitorPage       — 实时监控仪表盘
+│   │   │   └── DeviceChartPage    — 数据图表
+│   │   ├── SavedDevicesPage  — 收藏/保存的设备
+│   │   ├── PowerStatsPage    — 功耗统计分析
+│   │   ├── DeviceComparisonPage — 多设备对比
+│   │   ├── RemoteControlPage — 透传遥控
+│   │   └── OtaUpgradePage    — 固件在线升级
+├── [Tab 1] ShopTabPage（商城）
+└── [Tab 2] ProfileTabPage（个人中心）
+
+骑行子模块（独立导航）：
+├── CyclingDashboardPage  — 骑行仪表盘
+└── SpeedometerPage       — 实时速度表
+
+命名路由：
+'/'                   → HomePage
+'/monitor'            → MonitorPage
+'/saved-devices'      → SavedDevicesPage
+'/test-notification'  → TestNotificationPage</code></pre>
+  </section>
+
+  <!-- ── Pages ── -->
+  <section id="pages">
+    <h2>页面详解</h2>
+    <div class="table-wrap">
+      <table>
+        <tr><th>页面文件</th><th>功能</th><th>关键特性</th></tr>
+        <tr>
+          <td class="td-code">home_page.dart</td>
+          <td>BLE 设备扫描主页</td>
+          <td>实时扫描列表、RSSI 信号强度显示、搜索过滤、一键收藏</td>
+        </tr>
+        <tr>
+          <td class="td-code">monitor_page.dart</td>
+          <td>实时监控仪表盘</td>
+          <td>电流/电压/功率实时刷新、功耗累计、多设备同时显示</td>
+        </tr>
+        <tr>
+          <td class="td-code">device_detail_page.dart</td>
+          <td>设备详情</td>
+          <td>MAC 地址、RSSI、历史记录数量、连接状态、设置入口</td>
+        </tr>
+        <tr>
+          <td class="td-code">device_chart_page.dart</td>
+          <td>数据可视化图表</td>
+          <td>fl_chart 折线图、时间轴缩放、电流/电压/功率切换展示</td>
+        </tr>
+        <tr>
+          <td class="td-code">power_stats_page.dart</td>
+          <td>功耗统计分析</td>
+          <td>日/月/年功耗柱状图，365天/12月历史数据，导出支持</td>
+        </tr>
+        <tr>
+          <td class="td-code">saved_devices_page.dart</td>
+          <td>收藏设备管理</td>
+          <td>保存设备列表、快速连接、设备设置配置</td>
+        </tr>
+        <tr>
+          <td class="td-code">scan_settings_page.dart</td>
+          <td>扫描间隔配置</td>
+          <td>0.5 ~ 60 秒滑块调节，SharedPreferences 持久化</td>
+        </tr>
+        <tr>
+          <td class="td-code">remote_control_page.dart</td>
+          <td>BLE 透传遥控</td>
+          <td>自定义按钮、十六进制数据收发、实时连接状态检测</td>
+        </tr>
+        <tr>
+          <td class="td-code">device_comparison_page.dart</td>
+          <td>多设备对比</td>
+          <td>并排展示多台设备实时数据，同步时间轴对比分析</td>
+        </tr>
+        <tr>
+          <td class="td-code">ota_upgrade_page.dart</td>
+          <td>OTA 固件升级</td>
+          <td>文件选择、升级进度条、Dio HTTP 传输</td>
+        </tr>
+        <tr>
+          <td class="td-code">cycling_dashboard_page.dart</td>
+          <td>骑行仪表盘</td>
+          <td>实时速度/距离/海拔、轨迹记录、骑行历史</td>
+        </tr>
+        <tr>
+          <td class="td-code">speedometer_page.dart</td>
+          <td>实时速度计</td>
+          <td>仪表盘样式速度显示、GPS 实时更新</td>
+        </tr>
+        <tr>
+          <td class="td-code">test_notification_page.dart</td>
+          <td>通知测试</td>
+          <td>手动触发各类告警通知，用于调试测试</td>
+        </tr>
+        <tr>
+          <td class="td-code">power_meter_page.dart</td>
+          <td>功率计</td>
+          <td>大字体实时功率显示，适合快速查看场景</td>
+        </tr>
+      </table>
+    </div>
+    <h3>可复用 Widget 组件</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">📱</div>
+        <div class="card-title">DeviceCard</div>
+        <div class="card-desc">扫描列表卡片，展示设备名、RSSI、实时数据，支持点击跳转详情</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📊</div>
+        <div class="card-title">DeviceMonitorCard</div>
+        <div class="card-desc">监控页设备数据卡片，紧凑展示电流/电压/功率/功耗四项指标</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">☑️</div>
+        <div class="card-title">SelectableDeviceCard</div>
+        <div class="card-desc">带复选框的设备卡片，用于多设备选择对比场景</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📐</div>
+        <div class="card-title">ResponsiveWidgets</div>
+        <div class="card-desc">响应式尺寸工具组件，适配手机/平板/桌面不同屏幕尺寸</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Bluetooth ── -->
+  <section id="bluetooth">
+    <h2>BLE 扫描与连接</h2>
+    <p>应用通过持续 BLE 扫描（不建立 GATT 连接）的方式从广播包中提取传感器数据，低功耗且实时性高。</p>
+
+    <h3>扫描工作流程</h3>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>initBluetooth()</strong> — 注册蓝牙状态监听（开/关），加载已保存设备配置</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>startScan()</strong> — 启动连续扫描，扫描间隔由 ScanSettingsService 读取（默认 2 秒，范围 0.5~60s）</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>_processScanResults()</strong> — 过滤制造商数据不为空的设备，排除不支持的设备类型</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>_parseDeviceData()</strong> — 提取 manufacturerData 字节数组，根据平台选择对应解析逻辑</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">5</div>
+        <div class="flow-text"><strong>ManufacturerDataParser.parseManufacturerData()</strong> — 字节转换为电流/电压数值，构造 DeviceData 对象</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">6</div>
+        <div class="flow-text"><strong>健康检查定时器（5秒）</strong> — 检测扫描是否意外停止，自动重启扫描保障连续性</div>
+      </div>
+    </div>
+
+    <h3>扫描间隔设置</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>参数</th><th>值</th><th>说明</th></tr>
+        <tr><td>最小间隔</td><td>0.5 秒</td><td>高频场景，耗电较高</td></tr>
+        <tr><td>默认间隔</td><td>2 秒</td><td>平衡功耗与实时性</td></tr>
+        <tr><td>最大间隔</td><td>60 秒</td><td>低频监控，省电模式</td></tr>
+        <tr><td>数据去重间隔</td><td>1 秒</td><td>同一设备相同数据不重复存储</td></tr>
+        <tr><td>频率限制</td><td>500 ms</td><td>UI 刷新节流，防止过度渲染</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Packet ── -->
+  <section id="packet">
+    <h2>数据包格式</h2>
+    <p>目标设备在 BLE 广播包的制造商数据字段中按自定义协议编码传感器数值，应用针对 Windows 与移动端各自的格式做了差异化解析：</p>
+
+    <h3>移动端（Android / iOS）格式 — 最少 5 字节</h3>
+<pre><code>偏移  字节数  字段           说明
+----  ------  ------         -------
+0     1       电流高字节      与 Byte[1] 共同组成 16-bit 电流原始值
+1     1       电流低字节      Little-Endian，高字节在 [1]
+2     1       电流单位        1=nA / 10=uA / 50=mA / 100=A
+3     1       电压高字节      与 Byte[4] 共同组成 16-bit 电压原始值（单位 mV）
+4     1       电压低字节      Little-Endian，高字节在 [4]
+
+// 解析示例
+int rawCurrent = (bytes[1] &lt;&lt; 8) | bytes[0];
+int unitCode   = bytes[2];              // 1/10/50/100
+int rawVoltage = (bytes[4] &lt;&lt; 8) | bytes[3];  // mV</code></pre>
+
+    <h3>Windows 端格式 — 最少 7 字节</h3>
+<pre><code>偏移  字节数  字段           说明
+----  ------  ------         -------
+0     2       设备 ID         Little-Endian 设备标识符
+2     1       电流高字节
+3     1       电流低字节      高字节在 [3]
+4     1       电流单位        同上
+5     1       电压高字节
+6     1       电压低字节      高字节在 [6]，单位 mV
+
+// 解析示例（Windows）
+int deviceId   = (bytes[1] &lt;&lt; 8) | bytes[0];
+int rawCurrent = (bytes[3] &lt;&lt; 8) | bytes[2];
+int rawVoltage = (bytes[6] &lt;&lt; 8) | bytes[5];</code></pre>
+
+    <h3>电流单位换算</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>单位码</th><th>单位</th><th>换算系数</th><th>适用量程</th></tr>
+        <tr><td class="td-code">1</td><td>nA（纳安）</td><td>÷ 1,000,000</td><td>超低功耗设备，μA 以下</td></tr>
+        <tr><td class="td-code">10</td><td>μA（微安）</td><td>÷ 1,000</td><td>低功耗 IoT 设备</td></tr>
+        <tr><td class="td-code">50</td><td>mA（毫安）</td><td>÷ 1</td><td>一般嵌入式设备</td></tr>
+        <tr><td class="td-code">100</td><td>A（安培）</td><td>× 1</td><td>大电流设备</td></tr>
+      </table>
+    </div>
+    <div class="notice ok">
+      功率计算：<code>P (mW) = (voltage_mV / 1000) × current_mA</code>，
+      其中 current_mA 为统一换算后的毫安值，voltage 单位为毫伏。
+    </div>
+  </section>
+
+  <!-- ── Cross Platform ── -->
+  <section id="crossplatform">
+    <h2>跨平台适配</h2>
+    <p>项目通过抽象接口 <code>BluetoothAdapter</code> 隔离平台差异，实现"一套业务逻辑，多端运行"：</p>
+<pre><code>// bluetooth_service.dart - 抽象适配器接口
+abstract class BluetoothAdapter {
+  Stream&lt;List&lt;ScanResult&gt;&gt; get scanResults;
+  Future&lt;void&gt; startScan({Duration? timeout});
+  Future&lt;void&gt; stopScan();
+  Stream&lt;BluetoothAdapterState&gt; get adapterState;
+  Future&lt;void&gt; connect(String deviceId);
+  Future&lt;void&gt; disconnect(String deviceId);
+}
+
+// 平台分支（条件导入）
+if (Platform.isWindows) {
+  return WinBleAdapter();          // win_ble 包
+} else {
+  return FlutterBluePlusAdapter(); // flutter_blue_plus 包
+}</code></pre>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>平台</th><th>BLE 库</th><th>数据格式</th><th>通知方案</th><th>配对支持</th></tr>
+        <tr><td>Android</td><td>flutter_blue_plus ^1.32.11</td><td>5字节格式</td><td>flutter_local_notifications</td><td>系统配对 API</td></tr>
+        <tr><td>iOS</td><td>flutter_blue_plus ^1.32.11</td><td>5字节格式</td><td>flutter_local_notifications</td><td>系统配对 API</td></tr>
+        <tr><td>Windows</td><td>win_ble ^1.1.1</td><td>7字节格式（含设备ID）</td><td>local_notifier</td><td>Windows 配对 API</td></tr>
+      </table>
+    </div>
+
+    <div class="notice">
+      Windows 端数据包包含 2 字节设备 ID 前缀，是与移动端格式最主要的差异，解析时需按平台分支处理。
+    </div>
+  </section>
+
+  <!-- ── Monitoring ── -->
+  <section id="monitoring">
+    <h2>实时监控</h2>
+    <p>MonitorController 负责管理所有已选中设备的实时监控状态，核心功能包括数据接收、去重、存储批处理与功耗积分计算。</p>
+
+    <h3>SelectedDevice — 单设备监控数据结构</h3>
+<pre><code>class SelectedDevice {
+  final String   deviceId;
+  String         deviceName;
+  var            isMonitoring;       // Rx&lt;bool&gt; 响应式标志
+
+  // 实时数据历史（最多 86,400 条，约 24 小时 1Hz 采样）
+  final List&lt;DeviceData&gt; dataHistory;
+
+  // 功耗追踪（梯形积分法）
+  double         _sessionConsumption;        // 本次会话（mAh），应用重启清零
+  List&lt;double?&gt;  _dailyConsumptionArray;     // 近 365 天日功耗（mAh）
+  List&lt;double?&gt;  _monthlyConsumptionArray;   // 近 12 月月功耗（mAh）
+
+  // 最新读数快速访问
+  double get latestCurrent  =&gt; dataHistory.last.current;
+  double get latestVoltage  =&gt; dataHistory.last.voltage;
+  double get latestPower    =&gt; dataHistory.last.power;
+  double get powerConsumption =&gt; _sessionConsumption;
+}</code></pre>
+
+    <h3>数据去重与限流策略</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>策略</th><th>参数</th><th>目的</th></tr>
+        <tr><td>时间间隔去重</td><td>相邻两条 ≥ 1 秒</td><td>避免同一时刻重复存储</td></tr>
+        <tr><td>内容去重</td><td>连续相同值合并</td><td>节省存储空间</td></tr>
+        <tr><td>UI 刷新节流</td><td>每 500ms 最多刷新一次</td><td>防止过度重绘造成卡顿</td></tr>
+        <tr><td>批量入库</td><td>每 10 秒写一次 SQLite</td><td>减少磁盘 I/O 压力</td></tr>
+        <tr><td>历史上限</td><td>每设备 86,400 条</td><td>防止内存无限增长</td></tr>
+        <tr><td>数据库上限</td><td>每设备 2,592,000 条</td><td>约 30 天 1Hz 历史数据</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Alerts ── -->
+  <section id="alerts">
+    <h2>告警系统</h2>
+    <p>AlertService 为每台设备独立维护阈值配置，实时比较传入数据，支持多通道告警输出：</p>
+
+    <h3>告警类型</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">📳</div>
+        <div class="card-title">振动告警</div>
+        <div class="card-desc">调用 vibration 包触发设备马达振动，适合静音场景，无声提醒</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔔</div>
+        <div class="card-title">声音告警</div>
+        <div class="card-desc">通过 audioplayers 播放告警音，支持用户通过 file_picker 自定义音频文件路径</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📢</div>
+        <div class="card-title">系统通知</div>
+        <div class="card-desc">推送系统级通知，移动端用 flutter_local_notifications，Windows 用 local_notifier</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚡</div>
+        <div class="card-title">组合告警</div>
+        <div class="card-desc">AlertType.both 模式同时触发振动 + 声音，提高告警感知率</div>
+      </div>
+    </div>
+
+    <h3>告警阈值配置（DeviceSettings）</h3>
+<pre><code>enum AlertType { vibration, sound, both }
+
+class DeviceSettings {
+  final String deviceId;
+
+  double currentThreshold;           // 电流阈值（mA）
+  double voltageThreshold;           // 电压阈值（mV）
+  double powerThreshold;             // 功率阈值（mW）
+  double powerConsumptionThreshold;  // 功耗阈值（mAh）
+
+  bool      alertEnabled;            // 总开关
+  AlertType alertType;               // vibration / sound / both
+  String?   customSoundPath;         // 自定义音频文件路径（可选）
+}</code></pre>
+
+    <div class="notice ok">
+      设备配置持久化存储在 SQLite <code>device_settings</code> 表中，重启后自动恢复，每台设备独立配置互不干扰。
+    </div>
+  </section>
+
+  <!-- ── Power ── -->
+  <section id="power">
+    <h2>功耗统计</h2>
+    <p>应用通过梯形积分法对时序电流数据进行数值积分，得到精确的电量消耗（mAh）：</p>
+
+    <h3>积分算法</h3>
+<pre><code>// 梯形积分法计算功耗增量
+// 相邻两个采样点 (I1, t1) 和 (I2, t2)
+double deltaTime    = (t2 - t1).inMilliseconds / 3600000.0;  // 转换为小时
+double avgCurrent   = (I1 + I2) / 2.0;                       // 梯形平均值（mA）
+double deltaCharge  = avgCurrent * deltaTime;                 // 增量电量（mAh）
+
+_sessionConsumption += deltaCharge;</code></pre>
+
+    <h3>多时间维度统计</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>维度</th><th>存储结构</th><th>容量</th><th>说明</th></tr>
+        <tr><td>会话功耗</td><td><code>_sessionConsumption</code>（double）</td><td>单值</td><td>应用每次启动清零，仅统计本次运行</td></tr>
+        <tr><td>日功耗</td><td><code>List&lt;double?&gt;</code> 365 元素</td><td>365 天</td><td>按日历日期索引，null 表示无数据</td></tr>
+        <tr><td>月功耗</td><td><code>List&lt;double?&gt;</code> 12 元素</td><td>12 个月</td><td>按月份索引（0=1月），累计当月所有日数据</td></tr>
+        <tr><td>年功耗</td><td>由月功耗汇总计算</td><td>实时聚合</td><td>UI 层对 12 月数据求和展示</td></tr>
+      </table>
+    </div>
+    <div class="notice">
+      日功耗和月功耗数组持久化存储于 SQLite 的 <code>daily_power_consumption</code> 和 <code>monthly_power_consumption</code> 表中，支持跨次启动累计追踪。
+    </div>
+  </section>
+
+  <!-- ── Models ── -->
+  <section id="models">
+    <h2>数据模型</h2>
+
+    <h3>DeviceData — 单次测量记录</h3>
+<pre><code>class DeviceData {
+  final String   deviceId;
+  final String   deviceName;
+  final DateTime timestamp;
+
+  final double   current;      // 换算后的 mA 值
+  final String   currentUnit;  // 原始单位字符串："nA" / "uA" / "mA" / "A"
+  final double   voltage;      // 电压，单位 mV
+  final double   power;        // 功率，单位 mW（= voltage/1000 × current_mA）
+
+  final BleDataType dataType;  // advertisement / scanResponse
+}</code></pre>
+
+    <h3>RideSession / RidePoint — 骑行追踪</h3>
+<pre><code>class RideSession {
+  final int    id;
+  final String name;
+  final DateTime startTime;
+  final DateTime? endTime;
+  final double totalDistance;   // 总里程（米）
+  final double avgSpeed;        // 平均速度（m/s）
+  final double maxSpeed;        // 最高速度（m/s）
+  final double elevationGain;   // 爬升高度（米）
+  final List&lt;RidePoint&gt; points; // GPS 轨迹点序列
+}
+
+class RidePoint {
+  final double latitude;        // 纬度
+  final double longitude;       // 经度
+  final double altitude;        // 海拔（米）
+  final double speed;           // 即时速度（m/s）
+  final DateTime timestamp;
+}</code></pre>
+  </section>
+
+  <!-- ── Database ── -->
+  <section id="database">
+    <h2>数据库设计</h2>
+    <p>使用 sqflite（移动端）+ sqflite_common_ffi（Windows）实现跨平台 SQLite 访问，当前 Schema 版本 v6：</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>表名</th><th>用途</th><th>主要字段</th></tr>
+        <tr>
+          <td class="td-code">devices</td>
+          <td>已保存/收藏设备</td>
+          <td>device_id, device_name, created_at</td>
+        </tr>
+        <tr>
+          <td class="td-code">device_data</td>
+          <td>时序传感器数据</td>
+          <td>device_id, timestamp, current, current_unit, voltage, power</td>
+        </tr>
+        <tr>
+          <td class="td-code">device_settings</td>
+          <td>告警阈值配置</td>
+          <td>device_id, current_threshold, voltage_threshold, alert_type, custom_sound_path</td>
+        </tr>
+        <tr>
+          <td class="td-code">daily_power_consumption</td>
+          <td>日功耗统计（含索引）</td>
+          <td>device_id, date, consumption_mah</td>
+        </tr>
+        <tr>
+          <td class="td-code">monthly_power_consumption</td>
+          <td>月功耗统计（含索引）</td>
+          <td>device_id, year_month, consumption_mah</td>
+        </tr>
+        <tr>
+          <td class="td-code">custom_buttons</td>
+          <td>全局自定义遥控按钮（v6 新增）</td>
+          <td>id, label, hex_data, sort_order</td>
+        </tr>
+        <tr>
+          <td class="td-code">scan_settings</td>
+          <td>扫描间隔全局配置</td>
+          <td>key, value</td>
+        </tr>
+        <tr>
+          <td class="td-code">rides</td>
+          <td>骑行会话记录</td>
+          <td>id, name, start_time, end_time, total_distance, avg_speed, max_speed</td>
+        </tr>
+        <tr>
+          <td class="td-code">ride_points</td>
+          <td>骑行 GPS 轨迹点</td>
+          <td>ride_id, latitude, longitude, altitude, speed, timestamp</td>
+        </tr>
+      </table>
+    </div>
+    <div class="notice warn">
+      <strong>数据容量上限：</strong>每台设备最多存储 2,592,000 条历史数据（约 30 天 1Hz 采样），超出后自动删除最旧的记录，防止磁盘无限增长。
+    </div>
+  </section>
+
+  <!-- ── Remote Control ── -->
+  <section id="remote">
+    <h2>遥控功能</h2>
+    <p>RemoteControlPage 通过 BLE 透传通道向设备发送自定义十六进制指令，同时接收设备返回的数据并以十六进制格式实时显示。</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🎮</div>
+        <div class="card-title">自定义按钮</div>
+        <div class="card-desc">用户可创建、保存任意数量的自定义按钮，每个按钮绑定固定的十六进制指令，配置存储于 SQLite <code>custom_buttons</code> 表</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📡</div>
+        <div class="card-title">透传接收</div>
+        <div class="card-desc">接收窗口实时显示设备上报的原始数据（十六进制），滚动显示最新数据帧</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔗</div>
+        <div class="card-title">连接状态检测</div>
+        <div class="card-desc">实时监测蓝牙连接状态，断连时自动禁用所有发送按钮，防止无效操作</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔢</div>
+        <div class="card-title">手动输入</div>
+        <div class="card-desc">支持手动输入任意十六进制字符串并发送，灵活应对临时调试需求</div>
+      </div>
+    </div>
+    <div class="notice">
+      遥控页面通过监听 GATT Characteristic 通知实现数据接收，发送指令走 Write Without Response 模式以保证低延迟。
+    </div>
+  </section>
+
+  <!-- ── Cycling ── -->
+  <section id="cycling">
+    <h2>骑行追踪</h2>
+    <p>集成 Geolocator 实现 GPS 实时追踪，记录完整骑行轨迹，适用于绑定了功耗监控设备的自行车/电动车场景：</p>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>功能</th><th>实现方案</th><th>说明</th></tr>
+        <tr><td>实时速度</td><td>geolocator 位置流计算</td><td>基于相邻 GPS 点距离/时间差计算，m/s 转 km/h 显示</td></tr>
+        <tr><td>行驶距离</td><td>Haversine 公式累计</td><td>球面距离计算，精度约 ±5 米</td></tr>
+        <tr><td>实时海拔</td><td>GPS altitude 字段</td><td>WGS84 椭球高度，误差约 ±10 米</td></tr>
+        <tr><td>轨迹记录</td><td>RidePoint 序列存储</td><td>每秒一个 GPS 点，完整轨迹可回放</td></tr>
+        <tr><td>历史记录</td><td>SQLite rides + ride_points</td><td>可浏览历史骑行数据，查看里程/速度/海拔曲线</td></tr>
+        <tr><td>仪表盘显示</td><td>CyclingDashboardPage</td><td>大字体速度+距离+时间+消耗功耗一体展示</td></tr>
+      </table>
+    </div>
+    <div class="notice warn">
+      骑行功能当前处于开发完善阶段（git 日志显示近期有骑行界面显示修复），部分功能可能存在边界情况。
+    </div>
+  </section>
+
+  <!-- ── OTA ── -->
+  <section id="ota">
+    <h2>OTA 固件升级</h2>
+    <p>OtaUpgradePage 配合 OtaService 实现对已连接 BLE 设备的在线固件升级：</p>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>文件选择</strong> — 使用 file_picker 从本地存储选择固件 .bin 文件</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>连接检查</strong> — 确认目标设备已通过 GATT 连接，检查升级 Characteristic UUID</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>分包传输</strong> — 按固定包大小分割固件文件，通过 Write Characteristic 逐包发送</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>进度反馈</strong> — UI 实时显示传输百分比与剩余字节数</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">5</div>
+        <div class="flow-text"><strong>完成确认</strong> — 接收设备返回升级成功/失败通知，提示用户重启设备</div>
+      </div>
+    </div>
+    <div class="notice">
+      OTA 服务同时引入了 <code>dio</code> HTTP 客户端，支持从远程 URL 下载固件文件后升级，可实现云端版本管理。
+    </div>
+  </section>
+
+  <!-- ── Dependencies ── -->
+  <section id="dependencies">
+    <h2>依赖库</h2>
+
+    <h3>核心框架</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>包名</th><th>版本</th><th>用途</th></tr>
+        <tr><td class="td-code">flutter</td><td>sdk</td><td>UI 框架</td></tr>
+        <tr><td class="td-code">get</td><td>^4.6.6</td><td>状态管理、路由导航、依赖注入</td></tr>
+      </table>
+    </div>
+
+    <h3>蓝牙通信</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>包名</th><th>版本</th><th>平台</th><th>用途</th></tr>
+        <tr><td class="td-code">flutter_blue_plus</td><td>^1.32.11</td><td>Android / iOS</td><td>BLE 扫描、连接、GATT 操作</td></tr>
+        <tr><td class="td-code">win_ble</td><td>^1.1.1</td><td>Windows</td><td>Windows 平台 BLE 支持</td></tr>
+      </table>
+    </div>
+
+    <h3>数据存储</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>包名</th><th>版本</th><th>用途</th></tr>
+        <tr><td class="td-code">sqflite</td><td>^2.4.2</td><td>移动端 SQLite ORM</td></tr>
+        <tr><td class="td-code">sqflite_common_ffi</td><td>^2.3.0</td><td>Windows 平台 SQLite FFI 实现</td></tr>
+        <tr><td class="td-code">shared_preferences</td><td>^2.5.3</td><td>扫描间隔等轻量级 KV 配置存储</td></tr>
+        <tr><td class="td-code">path</td><td>^1.8.3</td><td>文件路径拼接工具</td></tr>
+        <tr><td class="td-code">path_provider</td><td>^2.1.2</td><td>获取平台标准文件目录</td></tr>
+      </table>
+    </div>
+
+    <h3>UI 与图表</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>包名</th><th>版本</th><th>用途</th></tr>
+        <tr><td class="td-code">fl_chart</td><td>^1.0.0</td><td>折线图、柱状图，用于数据可视化</td></tr>
+        <tr><td class="td-code">flutter_animate</td><td>^4.5.0</td><td>声明式动画效果</td></tr>
+        <tr><td class="td-code">cupertino_icons</td><td>^1.0.8</td><td>iOS 风格图标</td></tr>
+      </table>
+    </div>
+
+    <h3>通知与告警</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>包名</th><th>版本</th><th>平台</th><th>用途</th></tr>
+        <tr><td class="td-code">flutter_local_notifications</td><td>^17.2.2</td><td>Android / iOS</td><td>系统级推送通知</td></tr>
+        <tr><td class="td-code">local_notifier</td><td>^0.1.6</td><td>Windows</td><td>Windows 托盘通知</td></tr>
+        <tr><td class="td-code">vibration</td><td>^3.1.3</td><td>Android / iOS</td><td>振动告警</td></tr>
+        <tr><td class="td-code">audioplayers</td><td>^6.5.0</td><td>全平台</td><td>声音告警，支持自定义音频</td></tr>
+      </table>
+    </div>
+
+    <h3>权限与系统</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>包名</th><th>版本</th><th>用途</th></tr>
+        <tr><td class="td-code">permission_handler</td><td>^12.0.1</td><td>运行时权限申请（蓝牙、位置、通知）</td></tr>
+        <tr><td class="td-code">device_info_plus</td><td>^10.1.0</td><td>获取设备信息（Android SDK 版本等）</td></tr>
+        <tr><td class="td-code">file_picker</td><td>^8.1.2</td><td>本地文件选择（固件、自定义音频）</td></tr>
+      </table>
+    </div>
+
+    <h3>网络与协议</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>包名</th><th>版本</th><th>用途</th></tr>
+        <tr><td class="td-code">dio</td><td>^5.4.0</td><td>HTTP 客户端，OTA 固件远程下载</td></tr>
+        <tr><td class="td-code">mqtt_client</td><td>^10.2.0</td><td>MQTT 协议支持，远程数据上报</td></tr>
+        <tr><td class="td-code">geolocator</td><td>^12.0.0</td><td>GPS 定位，骑行追踪功能</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Files ── -->
+  <section id="files">
+    <h2>文件结构</h2>
+<pre><code>lib/
+├── main.dart                        # 入口：GetX 注册、WidgetsBinding 初始化
+│
+├── controllers/                     # 业务控制器层
+│   ├── ble_controller.dart          # BLE 扫描、解析、状态管理（~500 行）
+│   ├── monitor_controller.dart      # 实时监控核心，数据聚合与持久化（~1130 行）
+│   └── ride_controller.dart         # 骑行 GPS 追踪控制
+│
+├── models/                          # 数据模型层
+│   ├── device_data.dart             # DeviceData、SelectedDevice、ManufacturerDataParser（~750 行）
+│   ├── device_settings.dart         # DeviceSettings、AlertType 枚举
+│   └── ride_models.dart             # RideSession、RidePoint
+│
+├── pages/                           # UI 页面层（24 个文件）
+│   ├── main_app_page.dart           # 底部三标签主框架
+│   ├── home_page.dart               # BLE 设备扫描列表
+│   ├── monitor_page.dart            # 实时监控仪表盘
+│   ├── device_detail_page.dart      # 设备详情
+│   ├── device_tab_page.dart         # 设备管理标签页
+│   ├── saved_devices_page.dart      # 已保存设备
+│   ├── device_chart_page.dart       # 数据图表
+│   ├── device_comparison_page.dart  # 多设备对比
+│   ├── power_stats_page.dart        # 功耗统计分析
+│   ├── power_meter_page.dart        # 功率计大字体显示
+│   ├── scan_settings_page.dart      # 扫描间隔设置
+│   ├── remote_control_page.dart     # 透传遥控
+│   ├── ota_upgrade_page.dart        # OTA 固件升级
+│   ├── cycling_dashboard_page.dart  # 骑行仪表盘
+│   ├── speedometer_page.dart        # 实时速度计
+│   ├── shop_tab_page.dart           # 商城标签页
+│   ├── profile_tab_page.dart        # 个人中心标签页
+│   └── test_notification_page.dart  # 通知测试页
+│
+├── services/                        # 业务服务层
+│   ├── bluetooth_service.dart       # 跨平台 BLE 适配器（~400 行）
+│   ├── database_service.dart        # SQLite CRUD（~600 行）
+│   ├── alert_service.dart           # 告警阈值检查与推送（~709 行）
+│   ├── notification_service.dart    # 系统通知封装
+│   ├── scan_settings_service.dart   # 扫描间隔 SharedPreferences
+│   ├── ota_service.dart             # OTA 升级逻辑
+│   ├── background_service.dart      # 后台任务
+│   └── responsive_service.dart      # 响应式尺寸工具
+│
+├── widgets/                         # 可复用组件
+│   ├── device_card.dart             # 设备列表卡片
+│   ├── device_monitor_card.dart     # 监控数据卡片
+│   ├── selectable_device_card.dart  # 可选择设备卡片
+│   └── responsive_widgets.dart      # 响应式布局工具
+│
+└── utils/
+    └── permission_helper.dart       # 权限申请工具</code></pre>
+
+    <div class="notice ok">
+      项目结构清晰，严格遵循 controllers / models / pages / services / widgets 五层分离，便于团队协作与后续功能扩展。
+    </div>
+
+    <h3>近期开发记录（git log）</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Commit</th><th>说明</th><th>影响模块</th></tr>
+        <tr><td class="td-code">1744d89</td><td>码表骑行界面显示错误修复</td><td>cycling_dashboard_page</td></tr>
+        <tr><td class="td-code">30d7f05</td><td>问题暂时解决</td><td>未知</td></tr>
+        <tr><td class="td-code">c7d546b</td><td>遥控功能界面不能实时检测蓝牙断开，添加按钮功能不可用</td><td>remote_control_page</td></tr>
+        <tr><td class="td-code">3c56797</td><td>遥控功能的接收窗口占据空间太大</td><td>remote_control_page（UI 布局调整）</td></tr>
+        <tr><td class="td-code">6063eee</td><td>可以接收透传数据，十六进制显示</td><td>remote_control_page（新功能）</td></tr>
+      </table>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  BLE Monitor &nbsp;·&nbsp; Flutter 蓝牙功耗监控应用 &nbsp;·&nbsp; ble_monitor v1.0.0 &nbsp;·&nbsp;
+  框架: Flutter 3.0+ / GetX / SQLite &nbsp;·&nbsp; 平台: Android · iOS · Windows
+</footer>
+</main>
+
+<script>
+  // ── Menu Toggle ──
+  const toggle = document.getElementById('menu-toggle');
+  toggle.addEventListener('click', () => {
+    document.body.classList.toggle('menu-open');
+  });
+
+  // ── Active link on scroll ──
+  const sections = document.querySelectorAll('section[id]');
+  const links = document.querySelectorAll('.sidebar-link, .sidebar-sublink');
+
+  function updateActive() {
+    let current = '';
+    sections.forEach(sec => {
+      const top = sec.getBoundingClientRect().top;
+      if (top <= 80) current = sec.id;
+    });
+    links.forEach(a => {
+      const isActive = a.getAttribute('href') === '#' + current;
+      a.classList.toggle('active', isActive);
+      if (isActive) a.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+  }
+
+  document.getElementById('main').addEventListener('scroll', updateActive);
+  window.addEventListener('scroll', updateActive);
+
+  // ── Copy button ──
+  document.querySelectorAll('pre').forEach(pre => {
+    const btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.title = '复制代码';
+    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    btn.addEventListener('click', () => {
+      const code = pre.querySelector('code') ? pre.querySelector('code').innerText : pre.innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        btn.classList.add('copied');
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+        }, 2000);
+      });
+    });
+    pre.appendChild(btn);
+  });
+
+  // ── Smooth scroll ──
+  links.forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (window.innerWidth < 700) document.body.classList.remove('menu-open');
+    });
+  });
+</script>
+</body>
+</html>

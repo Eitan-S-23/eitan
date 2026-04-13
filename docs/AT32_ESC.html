@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>AT32F415 BLDC ESC · 技术文档</title>
+<style>
+:root{
+  --bg:#fafafa;--surface:#fff;--border:#e8e8e8;--text:#1a1a1a;--muted:#888;
+  --accent:#2d6be4;--accent-light:#eef3fd;--tag-bg:#f0f0f0;
+  --sidebar-w:268px;--header-h:52px;--radius:6px;
+  --mono:'JetBrains Mono','Fira Code','Cascadia Code','Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.7}
+
+/* ─── Header ─── */
+#header{position:fixed;top:0;left:0;right:0;height:var(--header-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px;z-index:100}
+#menu-toggle{width:36px;height:36px;background:none;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;flex-shrink:0;transition:background .15s}
+#menu-toggle:hover{background:var(--tag-bg)}
+#menu-toggle span{display:block;width:16px;height:1.5px;background:var(--text);border-radius:2px;transition:transform .2s,opacity .2s}
+body.menu-open #menu-toggle span:nth-child(1){transform:translateY(5.5px) rotate(45deg)}
+body.menu-open #menu-toggle span:nth-child(2){opacity:0}
+body.menu-open #menu-toggle span:nth-child(3){transform:translateY(-5.5px) rotate(-45deg)}
+#brand{font-size:15px;font-weight:600;letter-spacing:-.2px;color:var(--text)}
+#brand sup{font-size:10px;font-weight:400;color:var(--muted);margin-left:6px}
+.header-meta{margin-left:auto;display:flex;gap:8px}
+.badge{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--accent-light);color:var(--accent);font-weight:500}
+
+/* ─── Sidebar ─── */
+#sidebar{position:fixed;top:var(--header-h);left:0;bottom:0;width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;transform:translateX(0);transition:transform .25s cubic-bezier(.4,0,.2,1);z-index:90;padding:16px 0 32px}
+body:not(.menu-open) #sidebar{transform:translateX(calc(-1 * var(--sidebar-w)))}
+.sidebar-section{margin-bottom:8px}
+.sidebar-section-title{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);padding:8px 20px 4px}
+.sidebar-link{display:block;padding:6px 20px;color:#444;text-decoration:none;font-size:13px;border-left:2px solid transparent;transition:all .15s}
+.sidebar-link:hover{color:var(--accent);background:var(--accent-light);border-left-color:var(--accent)}
+.sidebar-link.active{color:var(--accent);background:var(--accent-light);border-left-color:var(--accent);font-weight:500}
+
+/* ─── Main layout ─── */
+#main{margin-top:var(--header-h);margin-left:var(--sidebar-w);transition:margin-left .25s cubic-bezier(.4,0,.2,1);min-height:calc(100vh - var(--header-h))}
+body:not(.menu-open) #main{margin-left:0}
+.content{max-width:920px;margin:0 auto;padding:48px 32px 80px}
+
+/* ─── Typography ─── */
+section{margin-bottom:64px}
+.section-label{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
+h1{font-size:32px;font-weight:700;letter-spacing:-.5px;line-height:1.2;margin-bottom:16px}
+h2{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+h3{font-size:15px;font-weight:600;margin:24px 0 10px}
+p{color:#444;margin-bottom:12px}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+ul,ol{color:#444;padding-left:20px;margin-bottom:12px}
+li{margin-bottom:4px}
+
+/* ─── Hero ─── */
+.hero-desc{font-size:16px;color:#555;max-width:640px;line-height:1.8;margin-bottom:28px}
+.hero-tags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:32px}
+.tag{font-size:12px;padding:4px 10px;border-radius:20px;background:var(--tag-bg);color:#555}
+
+/* ─── Cards ─── */
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin:16px 0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.card-icon{font-size:20px;margin-bottom:8px}
+.card-title{font-size:13px;font-weight:600;margin-bottom:4px}
+.card-desc{font-size:12px;color:var(--muted);line-height:1.5}
+
+/* ─── Table ─── */
+.table-wrap{overflow-x:auto;margin:16px 0}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 12px;background:#f5f5f5;border:1px solid var(--border);font-weight:600;color:#555}
+td{padding:8px 12px;border:1px solid var(--border);color:#444;vertical-align:top}
+tr:hover td{background:#fafafa}
+.td-code{font-family:var(--mono);font-size:12px;color:#c0392b}
+
+/* ─── Code ─── */
+pre{background:#1e1e2e;color:#cdd6f4;border-radius:var(--radius);padding:20px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.7;margin:16px 0;position:relative}
+.copy-btn{position:absolute;top:8px;right:8px;width:28px;height:28px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s,background .15s;color:#cdd6f4;padding:0}
+pre:hover .copy-btn{opacity:1}
+.copy-btn:hover{background:rgba(255,255,255,.18)}
+.copy-btn.copied{color:#a6e3a1;border-color:#a6e3a1}
+code{font-family:var(--mono);font-size:12.5px;background:#f3f3f3;border-radius:3px;padding:1px 5px;color:#c0392b}
+pre code{background:none;color:inherit;padding:0;font-size:inherit}
+
+/* ─── Architecture diagram ─── */
+.arch{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:16px 0}
+.arch-layer{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px}
+.arch-layer:last-child{border-bottom:none}
+.arch-name{font-size:12px;font-weight:600;color:var(--muted);min-width:110px;text-transform:uppercase;letter-spacing:.5px}
+.arch-items{display:flex;flex-wrap:wrap;gap:6px}
+.arch-chip{font-size:11.5px;padding:3px 10px;border-radius:20px;background:var(--tag-bg);color:#444}
+.arch-layer.l1{background:#eef3fd}.arch-layer.l1 .arch-chip{background:#d0e1fd;color:#1a4db7}
+.arch-layer.l2{background:#f0faf5}.arch-layer.l2 .arch-chip{background:#c2edd8;color:#1a6648}
+.arch-layer.l3{background:#fdf8ee}.arch-layer.l3 .arch-chip{background:#fae6b0;color:#7a5200}
+.arch-layer.l4{background:#fdf3f0}.arch-layer.l4 .arch-chip{background:#f9cfc8;color:#8b1c0e}
+.arch-layer.l5{background:#f8f0fe}.arch-layer.l5 .arch-chip{background:#e1c7fc;color:#5b1fa3}
+
+/* ─── Stats ─── */
+.stats{display:flex;gap:16px;flex-wrap:wrap;margin:20px 0}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 24px;min-width:120px;text-align:center}
+.stat-num{font-size:26px;font-weight:700;color:var(--accent);letter-spacing:-.5px}
+.stat-label{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* ─── Flow ─── */
+.flow{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin:16px 0}
+.flow-step{display:flex;align-items:flex-start;gap:12px;padding:8px 0;border-bottom:1px dashed #eee}
+.flow-step:last-child{border-bottom:none}
+.flow-num{width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.flow-text{font-size:13px;color:#444;line-height:1.6}
+.flow-text strong{color:var(--text)}
+
+/* ─── Notices ─── */
+.notice{border-left:3px solid var(--accent);background:var(--accent-light);border-radius:0 var(--radius) var(--radius) 0;padding:12px 16px;margin:16px 0;font-size:13px;color:#335}
+.notice.warn{border-left-color:#e67e22;background:#fef9f0;color:#7a4500}
+.notice.ok{border-left-color:#27ae60;background:#f0faf5;color:#1a5c38}
+.notice.err{border-left-color:#e74c3c;background:#fdf0f0;color:#7a1a1a}
+
+/* ─── Pin map ─── */
+.pin-map{background:linear-gradient(135deg,#1e1e2e 0%,#181825 100%);color:#cdd6f4;padding:20px 24px;border-radius:var(--radius);margin:16px 0}
+.pin-map h4{color:#89b4fa;font-size:13px;margin:16px 0 8px}
+.pin-map h4:first-child{margin-top:0}
+.pin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.pin-item{background:rgba(255,255,255,.05);padding:8px 12px;border-radius:4px;border-left:3px solid var(--accent);font-family:var(--mono);font-size:12px}
+.pin-name{color:#89b4fa;font-weight:600}
+.pin-func{color:#a6adc8;font-size:11px;display:block;margin-top:2px}
+
+/* ─── Formula box ─── */
+.formula{background:#f8f9ff;border:1px solid #d0dcfa;border-radius:var(--radius);padding:16px 20px;margin:16px 0;font-family:var(--mono);font-size:13px;color:#1a2d6b;line-height:2}
+
+/* ─── Two-column ─── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+@media(max-width:640px){.two-col{grid-template-columns:1fr}}
+
+footer{text-align:center;padding:32px;font-size:12px;color:var(--muted);border-top:1px solid var(--border)}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#ddd;border-radius:3px}
+@media(max-width:700px){.content{padding:28px 18px 60px}h1{font-size:24px}.stats{gap:10px}.card-grid{grid-template-columns:1fr 1fr}.arch-layer{flex-direction:column;align-items:flex-start;gap:8px}.pin-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body class="menu-open">
+
+<header id="header">
+  <button id="menu-toggle" aria-label="Toggle menu"><span></span><span></span><span></span></button>
+  <div id="brand">AT32F415 BLDC ESC <sup>FOC + Six-Step · Cortex-M4 144 MHz</sup></div>
+  <div class="header-meta"><span class="badge">v2.0</span><span class="badge">Motor Control</span></div>
+</header>
+
+<nav id="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">概览</div>
+    <a class="sidebar-link" href="#overview">项目概览</a>
+    <a class="sidebar-link" href="#stats">关键指标</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">系统架构</div>
+    <a class="sidebar-link" href="#architecture">软件分层</a>
+    <a class="sidebar-link" href="#file-map">文件结构</a>
+    <a class="sidebar-link" href="#conditional">条件编译</a>
+    <a class="sidebar-link" href="#interrupt">中断架构</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">硬件设计</div>
+    <a class="sidebar-link" href="#hardware">硬件框图</a>
+    <a class="sidebar-link" href="#power-stage">功率级拓扑</a>
+    <a class="sidebar-link" href="#current-sense">电流采样链路</a>
+    <a class="sidebar-link" href="#gpio">GPIO 映射</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">FOC 算法</div>
+    <a class="sidebar-link" href="#foc-theory">理论基础</a>
+    <a class="sidebar-link" href="#transforms">坐标变换</a>
+    <a class="sidebar-link" href="#svpwm">SVPWM</a>
+    <a class="sidebar-link" href="#current-loop">电流环</a>
+    <a class="sidebar-link" href="#outer-loops">速度/位置环</a>
+    <a class="sidebar-link" href="#foc-startup">启动流程</a>
+    <a class="sidebar-link" href="#foc-modes">控制模式</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">六步换相</div>
+    <a class="sidebar-link" href="#sixstep-theory">换相原理</a>
+    <a class="sidebar-link" href="#bemf-zc">BEMF 过零检测</a>
+    <a class="sidebar-link" href="#sixstep-sm">状态机详解</a>
+    <a class="sidebar-link" href="#sixstep-timing">换相时序</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">传感器</div>
+    <a class="sidebar-link" href="#as5600">AS5600 编码器</a>
+    <a class="sidebar-link" href="#ina240">INA240 电流传感</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">调试与接口</div>
+    <a class="sidebar-link" href="#vofa">VOFA+ 调试</a>
+    <a class="sidebar-link" href="#api">命令接口</a>
+    <a class="sidebar-link" href="#params">参数配置</a>
+    <a class="sidebar-link" href="#protection">保护机制</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">工程实践</div>
+    <a class="sidebar-link" href="#build">编译与烧录</a>
+    <a class="sidebar-link" href="#tuning">PID 调参指南</a>
+    <a class="sidebar-link" href="#refactor">重构说明</a>
+  </div>
+</nav>
+
+<div id="main">
+<div class="content">
+
+<!-- ═══════════════════════════════════════ OVERVIEW ═══════ -->
+<section id="overview">
+  <div class="section-label">project overview</div>
+  <h1>AT32F415 无刷直流电机电子调速器</h1>
+  <p class="hero-desc">基于雅特力 AT32F415CBT7（Cortex-M4，144&thinsp;MHz）的双模式 BLDC 电调系统。默认以 AS5600 磁编码器实现有感 FOC 矢量控制，可通过编译宏一键切换至 BEMF 过零检测无感六步换相驱动。电流环设计参考 VESC 开源电调的 PI 抗饱和策略（电压包络约束），支持转矩、速度、位置、功率、制动、回馈制动六种控制模式。</p>
+  <div class="hero-tags">
+    <span class="tag">AT32F415CBT7</span><span class="tag">Cortex-M4 144MHz</span>
+    <span class="tag">FOC 矢量控制</span><span class="tag">六步换相</span>
+    <span class="tag">AS5600 磁编码器</span><span class="tag">INA240A1 电流采样</span>
+    <span class="tag">FD6288Q 栅极驱动</span><span class="tag">SVPWM 20kHz</span>
+    <span class="tag">VOFA+ 实时调试</span><span class="tag">BEMF 过零检测</span>
+    <span class="tag">VESC 参考设计</span>
+  </div>
+  <div class="card-grid">
+    <div class="card"><div class="card-icon">⚡</div><div class="card-title">FOC 矢量控制</div><div class="card-desc">Clarke/Park 变换、dq 轴 PI 电流闭环、SVPWM 三相调制，转矩波动极小，适合精确控制场景</div></div>
+    <div class="card"><div class="card-icon">🔄</div><div class="card-title">BEMF 六步换相</div><div class="card-desc">无感方波驱动，CMP1 比较器过零检测，六态状态机完整支撑预定位→强制拖拽→闭环调速</div></div>
+    <div class="card"><div class="card-icon">📐</div><div class="card-title">多控制模式</div><div class="card-desc">FOC 模式支持转矩/速度/位置/功率/制动/回馈制动六种命令，六步模式支持 RPM 速度环与直接占空比控制</div></div>
+    <div class="card"><div class="card-icon">📊</div><div class="card-title">VOFA+ 实时遥测</div><div class="card-desc">JustFloat 协议 1&thinsp;kHz 帧率，12 通道数据覆盖三相电流、dq 分量、αβ 分量、电角度、速度等全链路</div></div>
+    <div class="card"><div class="card-icon">🧲</div><div class="card-title">DMA 编码器</div><div class="card-desc">AS5600 通过 I2C+DMA 自动轮询，~2&thinsp;kHz 刷新率，零 CPU 阻塞，支持累计圈数与速度估算</div></div>
+    <div class="card"><div class="card-icon">🛡️</div><div class="card-title">多重保护</div><div class="card-desc">堵转检测（连续30次强制换相无过零）、电压包络饱和保护、PI 积分器钳位、方向换向安全制动</div></div>
+  </div>
+</section>
+
+<!-- ═══════ Stats ═══════ -->
+<section id="stats">
+  <h2>关键指标</h2>
+  <div class="stats">
+    <div class="stat"><div class="stat-num">83</div><div class="stat-label">main.c 行数</div></div>
+    <div class="stat"><div class="stat-num">144</div><div class="stat-label">MCU 主频 MHz</div></div>
+    <div class="stat"><div class="stat-num">20</div><div class="stat-label">PWM 频率 kHz</div></div>
+    <div class="stat"><div class="stat-num">~700</div><div class="stat-label">死区时间 ns</div></div>
+    <div class="stat"><div class="stat-num">7</div><div class="stat-label">电机极对数</div></div>
+    <div class="stat"><div class="stat-num">12</div><div class="stat-label">VOFA+ 通道</div></div>
+    <div class="stat"><div class="stat-num">~29%</div><div class="stat-label">Flash 占用</div></div>
+    <div class="stat"><div class="stat-num">5A</div><div class="stat-label">峰值电流限制</div></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ ARCHITECTURE ═══════ -->
+<section id="architecture">
+  <h2>软件分层架构</h2>
+  <p>借鉴 VESC 的 <code>mc_interface</code> + <code>mcpwm_foc</code> 分层思路，将系统按职责切分为五层。顶层应用只调用模式接口，不直接操作硬件；底层驱动不感知控制逻辑。通过该分层，两种控制模式可共享全部 BSP 与算法代码。</p>
+  <div class="arch">
+    <div class="arch-layer l1">
+      <div class="arch-name">应用层</div>
+      <div class="arch-items">
+        <span class="arch-chip">main.c（83行）</span>
+        <span class="arch-chip">foc_mode.c</span>
+        <span class="arch-chip">sixstep_mode.c</span>
+        <span class="arch-chip">vofa_debug.c</span>
+      </div>
+    </div>
+    <div class="arch-layer l2">
+      <div class="arch-name">算法层</div>
+      <div class="arch-items">
+        <span class="arch-chip">foc_math.c（Clarke/Park/SVPWM）</span>
+        <span class="arch-chip">pid.c（PI/PID）</span>
+        <span class="arch-chip">lpf.c（低通滤波）</span>
+        <span class="arch-chip">motor_ctrl.c（六步状态机）</span>
+      </div>
+    </div>
+    <div class="arch-layer l3">
+      <div class="arch-name">传感器层</div>
+      <div class="arch-items">
+        <span class="arch-chip">encoder_as5600.c（I2C+DMA）</span>
+        <span class="arch-chip">bsp_current_sense.c（ADC）</span>
+        <span class="arch-chip">bsp_bemf.c（ADC+CMP）</span>
+      </div>
+    </div>
+    <div class="arch-layer l4">
+      <div class="arch-name">外设驱动层</div>
+      <div class="arch-items">
+        <span class="arch-chip">pwm_bldc.c（TMR1 6ch SVPWM）</span>
+        <span class="arch-chip">bsp_pwm6s.c（六步 PWM）</span>
+        <span class="arch-chip">bsp_at24c02.c（EEPROM）</span>
+        <span class="arch-chip">at32f415_board.c（LED/UART/时钟）</span>
+      </div>
+    </div>
+    <div class="arch-layer l5">
+      <div class="arch-name">硬件抽象层</div>
+      <div class="arch-items">
+        <span class="arch-chip">AT32F415 标准固件库</span>
+        <span class="arch-chip">I2C 中间件（i2c_application）</span>
+        <span class="arch-chip">CMSIS Cortex-M4</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ File Map ═══════ -->
+<section id="file-map">
+  <h2>文件结构</h2>
+  <div class="table-wrap">
+    <table>
+      <tr><th style="width:230px">文件</th><th>说明</th><th style="width:120px">编译条件</th></tr>
+      <tr><td class="td-code">src/main.c</td><td>入口程序，83 行，分发初始化与主循环，不含任何控制逻辑</td><td>始终</td></tr>
+      <tr><td class="td-code">src/foc_mode.c</td><td>FOC 有感模式完整实现：状态机（IDLE→ALIGN→OPENLOOP→FOC）、电流环、六种命令接口</td><td>default FOC</td></tr>
+      <tr><td class="td-code">inc/foc_mode.h</td><td>FOC 遥测结构体 <code>FocTelemetry_t</code>、控制枚举、命令函数声明</td><td>default FOC</td></tr>
+      <tr><td class="td-code">src/sixstep_mode.c</td><td>六步换相封装层：代理 motor_ctrl 状态机，提供统一命令接口</td><td>USE_BEMF_SIXSTEP</td></tr>
+      <tr><td class="td-code">src/vofa_debug.c</td><td>VOFA+ JustFloat 协议发送，自动切换 FOC/六步通道定义</td><td>始终</td></tr>
+      <tr><td class="td-code">src/motor_ctrl.c</td><td>六步换相完整状态机：IDLE / ALIGN / RAMP / RUN / BRAKE / FAULT</td><td>始终</td></tr>
+      <tr><td class="td-code">foc_lib/foc_math.c</td><td>Clarke 变换、Park 变换、逆 Park 变换，6 扇区 SVPWM（含过调制归一化）</td><td>始终</td></tr>
+      <tr><td class="td-code">foc_lib/pid.c</td><td>离散时间 PID：积分器钳位抗饱和、输出斜率限制、自适应 Ts</td><td>始终</td></tr>
+      <tr><td class="td-code">foc_lib/lpf.c</td><td>一阶 IIR 低通滤波器（可变时间常数）</td><td>始终</td></tr>
+      <tr><td class="td-code">foc_lib/encoder_as5600.c</td><td>AS5600 I2C+DMA 自动刷新，累计角度跟踪，速度估算</td><td>始终</td></tr>
+      <tr><td class="td-code">foc_lib/pwm_bldc.c</td><td>TMR1 六路互补 PWM 初始化与比较值设置（Motor 0 FOC 用）</td><td>始终</td></tr>
+      <tr><td class="td-code">src/bsp_bemf.c</td><td>BEMF ADC 多通道读取 + CMP1 比较器过零检测，per-step 反相输入切换</td><td>始终</td></tr>
+      <tr><td class="td-code">src/bsp_current_sense.c</td><td>三相 INA240 ADC 采样、零偏校准、电流换算</td><td>始终</td></tr>
+      <tr><td class="td-code">src/bsp_pwm6s.c</td><td>六步换相 PWM 驱动：步序查表、占空比设置、低侧全导通制动、自举预充电</td><td>始终</td></tr>
+      <tr><td class="td-code">src/bsp_at24c02.c</td><td>AT24C02 EEPROM 字节/页读写（阻塞式 I2C），用于参数持久化</td><td>始终</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════ Conditional Compilation ═══════ -->
+<section id="conditional">
+  <h2>条件编译方案</h2>
+  <p>在 <code>src/main.c</code> 第 15 行通过注释控制模式选择，无需修改任何其他文件：</p>
+  <pre><code>/* Uncomment to select six-step BEMF mode instead of FOC */
+/* #define USE_BEMF_SIXSTEP */
+
+#ifdef USE_BEMF_SIXSTEP
+#include "sixstep_mode.h"
+#else
+#include "foc_mode.h"
+#endif</code></pre>
+  <p>该宏同时影响 <code>vofa_debug.c</code> 中的遥测通道定义——FOC 模式输出 12 个浮点通道（三相电流 + dq + αβ + 速度 + 电角度等），六步模式输出 5 个通道（RPM、步序、占空比、编码器角度、编码器速度）。BSP 驱动层在两种模式下均编译，按需调用。</p>
+  <div class="notice ok">切换模式后只需 <strong>重新编译</strong>，无需修改任何硬件配置或 BSP 文件。</div>
+</section>
+
+<!-- ═══════ Interrupt Architecture ═══════ -->
+<section id="interrupt">
+  <h2>中断架构</h2>
+  <p>采用 NVIC 优先级组 4（4 位抢占 + 0 位子优先级），AS5600 DMA 链路为最高优先级以保证编码器连续刷新不被延误。</p>
+  <div class="table-wrap">
+    <table>
+      <tr><th>中断向量</th><th>优先级</th><th>功能</th></tr>
+      <tr><td class="td-code">DMA1_Channel1_IRQn</td><td>1.0</td><td>AS5600 I2C TX DMA 完成（写寄存器地址阶段）</td></tr>
+      <tr><td class="td-code">DMA1_Channel2_IRQn</td><td>1.0</td><td>AS5600 I2C RX DMA 完成 → 解析角度 → 立即重新发起读取</td></tr>
+      <tr><td class="td-code">I2C1_EVT_IRQn</td><td>1.0</td><td>I2C1 事件（ACK、重复起始条件等）</td></tr>
+      <tr><td class="td-code">I2C1_ERR_IRQn</td><td>1.0</td><td>I2C1 错误（总线占用/仲裁失败）</td></tr>
+      <tr><td class="td-code">SysTick_Handler</td><td>—</td><td>1ms 系统时基，<code>g_sys_tick_ms</code> 自增</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ HARDWARE ═══════ -->
+<section id="hardware">
+  <h2>硬件框图</h2>
+  <div class="card-grid">
+    <div class="card"><div class="card-icon">🧠</div><div class="card-title">AT32F415CBT7</div><div class="card-desc">Cortex-M4，144&thinsp;MHz，256&thinsp;KB Flash，32&thinsp;KB SRAM，LQFP-48，-40~85°C</div></div>
+    <div class="card"><div class="card-icon">🔧</div><div class="card-title">FD6288Q</div><div class="card-desc">三相栅极驱动，集成自举二极管，HIN/LIN 输入高电平有效，HVQFN-24</div></div>
+    <div class="card"><div class="card-icon">💪</div><div class="card-title">WSD3072DN33 × 2</div><div class="card-desc">N-MOSFET，30&thinsp;V / 72&thinsp;A，RDS(on)=4.5&thinsp;mΩ @10V，DFN 3×3-8L，Pd 59&thinsp;W</div></div>
+    <div class="card"><div class="card-icon">🔌</div><div class="card-title">INA240A1 × 2</div><div class="card-desc">低侧电流放大器，增益 20&thinsp;V/V，Rsense=5&thinsp;mΩ，Vref≈1.65&thinsp;V，PWR-SOP-8</div></div>
+    <div class="card"><div class="card-icon">🧲</div><div class="card-title">AS5600</div><div class="card-desc">12位磁编码器，I2C 400&thinsp;kHz，地址 0x36，寄存器 0x0E（两字节角度），DIP-8</div></div>
+    <div class="card"><div class="card-icon">💾</div><div class="card-title">AT24C02</div><div class="card-desc">2&thinsp;Kbit I2C EEPROM，地址 0x50，8字节页写，WP 接 GND（始终可写）</div></div>
+    <div class="card"><div class="card-icon">⚡</div><div class="card-title">MSMP1484EN 降压</div><div class="card-desc">4~18&thinsp;V 输入，FB=3.3&thinsp;V，L=4.7&thinsp;µH，配合 AMS1117-3.3 LDO 输出 3.3&thinsp;V 逻辑电源</div></div>
+    <div class="card"><div class="card-icon">🛡️</div><div class="card-title">SMCJ15CA TVS</div><div class="card-desc">双向 15&thinsp;V 钳位，保护 VM 轨道防止感性负载回流电压尖峰</div></div>
+  </div>
+</section>
+
+<!-- ═══════ Power Stage ═══════ -->
+<section id="power-stage">
+  <h2>功率级拓扑</h2>
+  <p>三相全桥拓扑，每相由一个高侧 N-MOSFET 和一个低侧 N-MOSFET 构成半桥臂（两个 WSD3072DN33 封装各集成两个半桥臂，共六个 MOSFET）。FD6288Q 内部集成 3 路自举二极管，外置 100&thinsp;nF 自举电容维持高侧栅极驱动电压；高/低侧栅极各串联 22&thinsp;Ω 限流电阻抑制振荡与 EMI。</p>
+  <div class="formula">
+    死区时间 Td = DTG × Tdts = 100 × (1 / 144,000,000) ≈ 694 ns<br>
+    PWM 中心对齐频率 f = Fclk / (2 × ARR) = 144MHz / (2 × 3600) = 20 kHz<br>
+    最大 D 轴参考电压 ULIMIT = Udc / √3 = 12.6 / 1.732 ≈ 7.27 V
+  </div>
+</section>
+
+<!-- ═══════ Current Sense ═══════ -->
+<section id="current-sense">
+  <h2>电流采样链路</h2>
+  <p>采用三相低侧串联采样拓扑：在每相下桥臂与 GND 之间串联 5&thinsp;mΩ / 3&thinsp;W 采样电阻（R128/R129，第三相由 Ia+Ib 计算），经 INA240A1 差分放大 20 倍后送入 MCU ADC。</p>
+  <div class="formula">
+    Vshunt = Iphase × Rshunt = I × 0.005 V/A<br>
+    Vout_INA240 = 1.65 + Vshunt × Gain = 1.65 + I × 0.1 V<br>
+    ADC_code = Vout × 4096 / 3.3 → I(A) = (ADC_code − offset) × 0.008057
+  </div>
+  <p>输出端串联 100&thinsp;Ω 限流电阻与 22&thinsp;nF 滤波电容（截止频率 ≈ 72&thinsp;kHz），滤除 PWM 开关噪声后接入 PA2/PA3/PA6 三路 ADC。零偏在上电时对 64 次采样取均值完成校准，存储于 <code>CurrentSense_t.offset_Ia/Ib/Ic</code>。</p>
+
+<!-- ═══════ GPIO ═══════ -->
+<section id="gpio">
+  <h2>GPIO 完整引脚映射</h2>
+  <div class="pin-map">
+    <h4>PWM 输出（TMR1 中心对齐，互补输出，TMR1_MUX_01 重映射）</h4>
+    <div class="pin-grid">
+      <div class="pin-item"><span class="pin-name">PA10</span><span class="pin-func">AH_1 · TMR1_CH3 · 相 A 高侧 HIN1</span></div>
+      <div class="pin-item"><span class="pin-name">PB1</span><span class="pin-func">AL_1 · TMR1_CH3C · 相 A 低侧 LIN1</span></div>
+      <div class="pin-item"><span class="pin-name">PA9</span><span class="pin-func">BH_1 · TMR1_CH2 · 相 B 高侧 HIN2</span></div>
+      <div class="pin-item"><span class="pin-name">PB0</span><span class="pin-func">BL_1 · TMR1_CH2C · 相 B 低侧 LIN2</span></div>
+      <div class="pin-item"><span class="pin-name">PA8</span><span class="pin-func">CH_1 · TMR1_CH1 · 相 C 高侧 HIN3</span></div>
+      <div class="pin-item"><span class="pin-name">PA7</span><span class="pin-func">CL_1 · TMR1_CH1C · 相 C 低侧 LIN3</span></div>
+      <div class="pin-item"><span class="pin-name">PB12</span><span class="pin-func">EN · FD6288Q 驱动使能（高有效）</span></div>
+    </div>
+    <h4>BEMF 反馈（ADC + CMP1 比较器）</h4>
+    <div class="pin-grid">
+      <div class="pin-item"><span class="pin-name">PA0</span><span class="pin-func">A_FB · ADC1_CH0 · CMP1(-) 相 A</span></div>
+      <div class="pin-item"><span class="pin-name">PA1</span><span class="pin-func">CC_1 · ADC1_CH1 · CMP1(+) 虚拟中性点</span></div>
+      <div class="pin-item"><span class="pin-name">PA4</span><span class="pin-func">B_FB · ADC1_CH4 · CMP1(-) 相 B</span></div>
+      <div class="pin-item"><span class="pin-name">PA5</span><span class="pin-func">C_FB · ADC1_CH5 · CMP1(-) 相 C</span></div>
+    </div>
+    <h4>电流采样（INA240A1 输出）</h4>
+    <div class="pin-grid">
+      <div class="pin-item"><span class="pin-name">PA2</span><span class="pin-func">CUR_A · ADC1_CH2 · 相 A 电流</span></div>
+      <div class="pin-item"><span class="pin-name">PA3</span><span class="pin-func">CUR_B · ADC1_CH3 · 相 B 电流</span></div>
+      <div class="pin-item"><span class="pin-name">PA6</span><span class="pin-func">CUR_C · ADC1_CH6 · 相 C 电流</span></div>
+    </div>
+    <h4>I²C 通信（I2C1_GMUX_0010 重映射）</h4>
+    <div class="pin-grid">
+      <div class="pin-item"><span class="pin-name">PF6</span><span class="pin-func">I2C1_SCL · 外部 4.7 kΩ 上拉至 3.3V</span></div>
+      <div class="pin-item"><span class="pin-name">PF7</span><span class="pin-func">I2C1_SDA · 外部 4.7 kΩ 上拉至 3.3V</span></div>
+    </div>
+    <h4>调试与状态</h4>
+    <div class="pin-grid">
+      <div class="pin-item"><span class="pin-name">PB10</span><span class="pin-func">USART3_TX · printf 调试串口 115200bps</span></div>
+      <div class="pin-item"><span class="pin-name">PC2</span><span class="pin-func">LED2 · 状态 LED（低电平有效）</span></div>
+      <div class="pin-item"><span class="pin-name">PC3</span><span class="pin-func">LED3 · 状态 LED</span></div>
+      <div class="pin-item"><span class="pin-name">PC5</span><span class="pin-func">LED4 · 状态 LED</span></div>
+      <div class="pin-item"><span class="pin-name">PA13</span><span class="pin-func">SWDIO · SWD 调试数据</span></div>
+      <div class="pin-item"><span class="pin-name">PA14</span><span class="pin-func">SWCLK · SWD 调试时钟</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ FOC THEORY ═══════ -->
+<section id="foc-theory">
+  <h2>FOC 矢量控制理论基础</h2>
+  <p>三相 BLDC 电机定子产生的合成磁场方向由三相电流向量决定。传统六步换相方式下，磁场每步跳变 60° 电角度，导致转矩脉动。FOC 的核心思想是通过坐标变换，将三相交流量投影到与转子同步旋转的 dq 坐标系——d 轴分量控制磁通（保持为 0 可最大化转矩/安培比），q 轴分量直接等比于输出转矩。控制器在 dq 坐标系中处理的是直流量，可直接使用 PI 控制器实现无静差跟踪。</p>
+  <div class="formula">
+    电机电压方程（dq 坐标系）：<br>
+    Vd = Rs·Id + Ld·(dId/dt) − ωe·Lq·Iq<br>
+    Vq = Rs·Iq + Lq·(dIq/dt) + ωe·Ld·Id + ωe·Ψm<br><br>
+    输出转矩：Te = (3/2) × Pp × (Ψm·Iq + (Ld−Lq)·Id·Iq)<br>
+    当 Id=0 时（表面贴装磁钢，Ld≈Lq）：Te ≈ (3/2) × Pp × Ψm × Iq
+  </div>
+  <p>其中 Rs 为定子电阻，Ld/Lq 为 d/q 轴电感，ωe 为电角速度，Ψm 为永磁体磁链，Pp 为极对数。本项目 Pp=7，Id 目标设为 0，转矩控制实质上等价于对 Iq 的精确控制。</p>
+</section>
+
+<!-- ═══════ Transforms ═══════ -->
+<section id="transforms">
+  <h2>坐标变换</h2>
+  <h3>Clarke 变换（三相 → 静止 αβ）</h3>
+  <p>三相平衡约束 Ic = −(Ia + Ib)，将三相变量投影到正交静止坐标系：</p>
+  <div class="formula">
+    Iα = Ia<br>
+    Iβ = (Ia + 2·Ib) / √3 = (1/√3)·Ia + (2/√3)·Ib
+  </div>
+  <p>代码实现（<code>foc_lib/foc_math.c</code>）：</p>
+  <pre><code>void foc_clarke(float Ia, float Ib, float *Ialpha, float *Ibeta)
+{
+    *Ialpha = Ia;
+    *Ibeta  = (Ia + 2.0f * Ib) * FOC_1_SQRT3;  /* FOC_1_SQRT3 = 1/√3 */
+}</code></pre>
+
+  <h3>Park 变换（静止 αβ → 旋转 dq）</h3>
+  <p>以当前电角度 θ 为旋转参考，将静止坐标系投影到与转子磁场同步旋转的坐标系：</p>
+  <div class="formula">
+    Id =  Iα·cos(θ) + Iβ·sin(θ)<br>
+    Iq = −Iα·sin(θ) + Iβ·cos(θ)
+  </div>
+  <pre><code>void foc_park(float Ialpha, float Ibeta, float cos_t, float sin_t,
+              float *Id, float *Iq)
+{
+    *Id =  Ialpha * cos_t + Ibeta * sin_t;
+    *Iq = -Ialpha * sin_t + Ibeta * cos_t;
+}</code></pre>
+
+  <h3>逆 Park 变换（dq 电压 → αβ）</h3>
+  <div class="formula">
+    Uα = Ud·cos(θ) − Uq·sin(θ)<br>
+    Uβ = Ud·sin(θ) + Uq·cos(θ)
+  </div>
+  <pre><code>void foc_inv_park(float Ud, float Uq, float cos_t, float sin_t,
+                  float *Ua, float *Ub)
+{
+    *Ua = Ud * cos_t - Uq * sin_t;
+    *Ub = Ud * sin_t + Uq * cos_t;
+}</code></pre>
+  <p>电角度 θ = (shaft_angle mod 2π) × POLE_PAIRS，由 AS5600 累计角度乘极对数计算。</p>
+</section>
+
+<!-- ═══════ SVPWM ═══════ -->
+<section id="svpwm">
+  <h2>空间矢量脉宽调制（SVPWM）</h2>
+  <p>SVPWM 将 αβ 平面的参考电压矢量分解到相邻两个有效基本矢量（V1~V6）与零矢量（V0/V7）的作用时间，然后对称分配到每个 PWM 周期内（中心对齐）。相比正弦调制，SVPWM 的直流利用率更高（提升约 15%）。</p>
+  <div class="formula">
+    6 个扇区判断参考量：<br>
+    ref1 = Uβ<br>
+    ref2 = (−Uβ + √3·Uα) / 2<br>
+    ref3 = (−Uβ − √3·Uα) / 2<br><br>
+    以扇区 1（ref1≥0, ref2≥0, ref3&lt;0）为例：<br>
+    t1 = Uα/Udc − Uβ/(√3·Udc)，t2 = 2·Uβ/(√3·Udc)<br>
+    t0 = (1 − t1 − t2) / 2（零矢量对称插入）<br>
+    Da = t1+t2+t0，Db = t2+t0，Dc = t0
+  </div>
+  <p>过调制时对 t1+t2 进行归一化（t1/= sum, t2/= sum）防止系数溢出。最终输出为 TMR1 三个通道的比较值（0~3600），配合硬件互补死区生成三相六路 PWM。</p>
+  <pre><code>/* 扇区 1 示例（6 个扇区逻辑类似） */
+t1 = ua - ub * FOC_1_SQRT3;
+t2 = 2.0f * ub * FOC_1_SQRT3;
+sum = t1 + t2;
+if (sum > 1.0f) { t1 /= sum; t2 /= sum; }  /* 过调制归一化 */
+t0 = (1.0f - t1 - t2) * 0.5f;
+Da = t1 + t2 + t0;  Db = t2 + t0;  Dc = t0;
+*ta = (uint32_t)(Da * PWM_PERIOD);  /* PWM_PERIOD = 3600 */</code></pre>
+</section>
+
+<!-- ═══════ Current Loop ═══════ -->
+<section id="current-loop">
+  <h2>电流环设计（VESC 参考）</h2>
+  <p>RL 电机模型为一阶系统，不需要 D 分量，仅使用 PI 控制器。设计参考 VESC 的电压包络抗饱和策略：先约束 Ud 不超过总电压限幅，再用剩余电压空间约束 Uq，同时将积分器钳位至可实现范围内，从根本上防止积分饱和。</p>
+  <div class="formula">
+    Ud_raw = Kp_d·(Id_sp − Id_m) + Ki_d·∫(Id_sp − Id_m)dt<br>
+    Ud = clamp(Ud_raw, −ULIMIT, +ULIMIT)<br><br>
+    max_Uq = √(ULIMIT² − Ud²)  ← 电压圆约束<br>
+    Uq_raw = Kp_q·(Iq_sp − Iq_m) + Ki_q·∫(Iq_sp − Iq_m)dt<br>
+    Uq = clamp(Uq_raw, −max_Uq, +max_Uq)<br>
+    积分器钳位：Ki_q.integral = clamp(Ki_q.integral, −max_Uq, +max_Uq)
+  </div>
+  <p>当前参数（<code>src/foc_mode.c</code>）：</p>
+  <div class="table-wrap">
+    <table>
+      <tr><th style="width:100px">参数</th><th>d 轴</th><th>q 轴</th><th>说明</th></tr>
+      <tr><td>Kp</td><td>3.0</td><td>3.0</td><td>比例增益，与电机电感正相关</td></tr>
+      <tr><td>Ki</td><td>800.0</td><td>800.0</td><td>积分增益，与电机电阻正相关</td></tr>
+      <tr><td>limit</td><td>7.27 V</td><td>动态（max_Uq）</td><td>输出电压限幅</td></tr>
+    </table>
+  </div>
+  <pre><code>/* VESC 抗饱和实现（src/foc_mode.c foc_current_loop()）*/
+Ud = clampf(pid_update(&pid_Id, Id_sp - Id_m, now_us), -ULIMIT, ULIMIT);
+max_vq = sqrtf(ULIMIT * ULIMIT - Ud * Ud);
+Uq = clampf(pid_update(&pid_Iq, Iq_sp - Iq_m, now_us), -max_vq, max_vq);
+/* 积分器钳位 */
+if (pid_Iq.integral >  max_vq) pid_Iq.integral =  max_vq;
+if (pid_Iq.integral < -max_vq) pid_Iq.integral = -max_vq;</code></pre>
+  <p>Id 目标常量为 0（表面贴装磁钢，无需弱磁控制）。Iq 目标由外层速度环或直接命令提供。</p>
+</section>
+
+<!-- ═══════ Outer Loops ═══════ -->
+<section id="outer-loops">
+  <h2>速度环与位置环</h2>
+  <h3>速度环（PI）</h3>
+  <div class="formula">
+    error_ω = direction × target_ω − ω_measured<br>
+    Iq_sp = Kp_vel·error_ω + Ki_vel·∫error_ω·dt<br>
+    Iq_sp = clamp(Iq_sp, −CURRENT_LIMIT, +CURRENT_LIMIT)
+  </div>
+  <p>参数：Kp=0.5，Ki=5.0，output_ramp=20&thinsp;A/s（防止电流急变），limit=5&thinsp;A。</p>
+
+  <h3>位置环（级联 P + 速度环）</h3>
+  <div class="formula">
+    error_θ = target_θ − shaft_angle<br>
+    ω_sp = Kp_pos·error_θ<br>
+    Iq_sp = 速度环(ω_sp − ω_measured)
+  </div>
+  <p>参数：Kp_pos=10.0，limit=60&thinsp;rad/s（速度饱和防止超调）。</p>
+
+  <h3>功率控制模式</h3>
+  <div class="formula">
+    ω_eff = clamp(|ω|, POWER_MIN_OMEGA=5, VELOCITY_LIMIT=60)<br>
+    Iq_sp = direction × target_P / (Kt × ω_eff)<br>
+    其中 Kt = TORQUE_CONST = 0.060 N·m/A
+  </div>
+  <p>低速时 ω_eff 下限 5&thinsp;rad/s 防止除零，同时避免低速大电流过热。</p>
+
+  <h3>回馈制动模式</h3>
+  <div class="formula">
+    iq_pwr = regen_power_limit / (Kt × ω_eff)<br>
+    Iq_sp = −direction × min(brake_current, iq_pwr)
+  </div>
+  <p>通过功率限制防止回馈能量过大损坏电源；低速段线性衰减防止锁死。</p>
+</section>
+
+<!-- ═══════ FOC Startup ═══════ -->
+<section id="foc-startup">
+  <h2>FOC 启动流程详解</h2>
+  <div class="flow">
+    <div class="flow-step">
+      <div class="flow-num">1</div>
+      <div class="flow-text"><strong>ALIGN（500ms）</strong>：施加 Ud=1.5V 至电角度 0° 方向（d 轴对准 A 相），通过逆 Park + SVPWM 产生定向磁场，将转子锁定到已知位置。零状态 500ms 后记录此时的 AS5600 角度作为电角度偏置 <code>elec_angle_offset</code>。</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-num">2</div>
+      <div class="flow-text"><strong>OPENLOOP（开环加速，10→50 rad/s）</strong>：以 300 rad/s² 加速度线性递增开环电角度 <code>ol_angle</code>，施加固定 Uq=1.2V 驱动转子跟随旋转磁场。速度超过 HANDOFF_SPEED=50 rad/s 后切换至 FOC 闭环。</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-num">3</div>
+      <div class="flow-text"><strong>FOC（编码器闭环）</strong>：切换至 AS5600 实时电角度反馈，电流闭环接管。速度环从 <code>pid_vel</code> 积分器清零开始平滑过渡，防止突变。</div>
+    </div>
+  </div>
+
+  <h3>方向反转安全策略</h3>
+  <div class="flow">
+    <div class="flow-step">
+      <div class="flow-num">1</div>
+      <div class="flow-text">收到反向命令 → 置 <code>reverse_pending=1</code>，控制模式不切换</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-num">2</div>
+      <div class="flow-text"><code>compute_iq_target()</code> 检测到 pending → 施加 <code>REV_BRAKE_I=1.8A</code> 反向制动电流（方向由当前速度符号决定，不依赖旧的方向标志）</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-num">3</div>
+      <div class="flow-text">速度降至 ±SPEED_EPS=1 rad/s → 更新 <code>run_direction</code>，清除 pending，重置速度 PI 积分器，无需重新 ALIGN 直接在 FOC 状态内换向</div>
+    </div>
+  </div>
+  <div class="notice ok">整个换向过程不离开 FOC 状态，无需重新对齐，实现平滑无冲击反转。</div>
+</section>
+
+<!-- ═══════ FOC Modes ═══════ -->
+<section id="foc-modes">
+  <h2>FOC 控制模式汇总</h2>
+  <div class="table-wrap">
+    <table>
+      <tr><th>模式</th><th>枚举</th><th>Iq 来源</th><th>典型用途</th></tr>
+      <tr><td>转矩控制</td><td class="td-code">FOC_CTRL_TORQUE</td><td>直接设定 <code>target_torque</code></td><td>力矩伺服、电动工具恒力矩</td></tr>
+      <tr><td>速度控制</td><td class="td-code">FOC_CTRL_SPEED</td><td>速度 PI 输出</td><td>转速闭环，最常用模式</td></tr>
+      <tr><td>位置控制</td><td class="td-code">FOC_CTRL_POSITION</td><td>位置 P → 速度 PI → Iq</td><td>伺服定位、角度跟踪</td></tr>
+      <tr><td>功率控制</td><td class="td-code">FOC_CTRL_POWER</td><td>P/(Kt·ω)</td><td>电动车恒功率驱动</td></tr>
+      <tr><td>电子制动</td><td class="td-code">FOC_CTRL_BRAKE</td><td>反向固定电流</td><td>快速停车</td></tr>
+      <tr><td>回馈制动</td><td class="td-code">FOC_CTRL_REGEN</td><td>功率限制型反向电流</td><td>能量回收制动</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ SIX-STEP ═══════ -->
+<section id="sixstep-theory">
+  <h2>六步换相原理</h2>
+  <p>六步换相（梯形波驱动）在每个电气周期（360°）内将三相绕组的通电状态分为六个 60° 区间，每个区间仅两相导通，第三相浮空（高阻态）。通过悬浮相的 BEMF 过零点判断转子位置，在正确时刻触发下一步换相，从而在无编码器情况下实现自同步运行。</p>
+  <div class="table-wrap">
+    <table>
+      <tr><th>步序</th><th>相 A</th><th>相 B</th><th>相 C</th><th>悬浮相</th><th>BEMF 过零方向</th></tr>
+      <tr><td>0</td><td>+PWM</td><td>−GND</td><td>Float</td><td>C</td><td>上升（C BEMF ↑）</td></tr>
+      <tr><td>1</td><td>+PWM</td><td>Float</td><td>−GND</td><td>B</td><td>下降（B BEMF ↓）</td></tr>
+      <tr><td>2</td><td>Float</td><td>+PWM</td><td>−GND</td><td>A</td><td>上升（A BEMF ↑）</td></tr>
+      <tr><td>3</td><td>−GND</td><td>+PWM</td><td>Float</td><td>C</td><td>下降（C BEMF ↓）</td></tr>
+      <tr><td>4</td><td>−GND</td><td>Float</td><td>+PWM</td><td>B</td><td>上升（B BEMF ↑）</td></tr>
+      <tr><td>5</td><td>Float</td><td>−GND</td><td>+PWM</td><td>A</td><td>下降（A BEMF ↓）</td></tr>
+    </table>
+  </div>
+  <p>逆时针（CCW）换相序只需将步序反向（5→4→3→2→1→0→5...），由 motor_ctrl.c 的 <code>direction</code> 字段控制查表方向。</p>
+</section>
+
+<!-- ═══════ BEMF ZC ═══════ -->
+<section id="bemf-zc">
+  <h2>BEMF 过零检测实现</h2>
+  <h3>硬件路径</h3>
+  <p>BEMF 反馈通过分压网络（10kΩ + 1kΩ，比例约 0.909，100nF 低通滤波）将相电压衰减至 MCU ADC 允许范围，同时接入 MCU 内置比较器 CMP1。虚拟中性点（各相分压电阻的公共点 CC_1）固定接 CMP1 同相输入（PA1）。每一步换相后，根据悬浮相（A/B/C）切换 CMP1 的反相输入引脚（PA0/PA4/PA5）。</p>
+  <div class="formula">
+    过零判断逻辑（偶数步序：BEMF 上升）：ZC = (CMP_output → 0)<br>
+    过零判断逻辑（奇数步序：BEMF 下降）：ZC = (CMP_output → 1)
+  </div>
+  <h3>滤波与消隐</h3>
+  <ul>
+    <li><strong>消隐时间（Blanking）</strong>：换相后 350 µs 内屏蔽所有过零检测，防止 MOSFET 切换瞬态（振铃、续流二极管恢复）触发误检。</li>
+    <li><strong>多重确认滤波</strong>：需连续 5 次 CMP 输出一致才判定为有效过零，屏蔽单次噪声干扰。</li>
+    <li><strong>检测窗口</strong>：过零有效窗口设为上一换相周期的 50%~140%，超出下限（太早）忽略，超时（太晚，>140%）强制换相（stall 计数 +1）。</li>
+  </ul>
+  <pre><code>/* bsp_bemf.c - 根据步序切换比较器反相输入 */
+static const uint8_t cmp_phase[] = {
+    CMP_INV_PA5,  /* step 0: C float */
+    CMP_INV_PA4,  /* step 1: B float */
+    CMP_INV_PA0,  /* step 2: A float */
+    CMP_INV_PA5,  /* step 3: C float */
+    CMP_INV_PA4,  /* step 4: B float */
+    CMP_INV_PA0,  /* step 5: A float */
+};</code></pre>
+</section>
+
+<!-- ═══════ Six-step State Machine ═══════ -->
+<section id="sixstep-sm">
+  <h2>六步换相状态机详解</h2>
+  <div class="flow">
+    <div class="flow-step">
+      <div class="flow-num">1</div>
+      <div class="flow-text"><strong>IDLE</strong>：所有 PWM 输出禁止，FD6288 使能引脚拉低。等待 <code>motor_ctrl_start()</code> 调用。</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-num">2</div>
+      <div class="flow-text"><strong>ALIGN（500ms）</strong>：施加低占空比（duty=1600/3600≈44%）固定在步序 0（A+ B−），强制转子对齐到第 0 步对应的磁场方向，建立已知初始位置。同时完成高侧自举电容预充电（<code>pwm6s_bootstrap_charge()</code>）。</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-num">3</div>
+      <div class="flow-text"><strong>RAMP（强制换相加速）</strong>：以初始 20ms 换相周期强制递推步序，每步后按一定步长缩短换相间隔，直至周期降至 1.5ms（约 333Hz 换相频率，对应 4762 RPM/极对数 ERPM）。期间一旦检测到第一个有效过零即切换至 RUN 状态。</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-num">4</div>
+      <div class="flow-text"><strong>RUN（BEMF 闭环）</strong>：以 BEMF 过零为换相触发，PI 速度环根据 <code>target_rpm</code> 和实测 RPM（由换相周期估算）调节 duty。RPM 估算公式：RPM = 60,000,000 / (comm_period_us × POLE_PAIRS)。</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-num">5</div>
+      <div class="flow-text"><strong>BRAKE</strong>：全部低侧 MOSFET 导通（<code>pwm6s_brake_low_side()</code>），三相电机绕组短接产生制动转矩。持续时间由 <code>brake_duration_us</code> 控制；设为 0 则持续制动直至 <code>motor_ctrl_release_brake()</code>。</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-num">6</div>
+      <div class="flow-text"><strong>FAULT（堵转保护）</strong>：RUN 状态下连续 <code>STALL_FORCE_MAX=30</code> 次强制换相（等效 45ms@1.5ms 最小周期）无有效过零检测 → 进入 FAULT，禁止所有输出，需手动调用 <code>motor_ctrl_stop()</code> 清除。</div>
+    </div>
+  </div>
+
+  <h3>方向切换</h3>
+  <p>运行中调用 <code>motor_ctrl_set_direction()</code> 时，若当前方向与目标不同，状态机自动：</p>
+  <ol>
+    <li>进入 BRAKE（制动 200ms）</li>
+    <li>设置 <code>restart_pending=1</code>，记录目标方向</li>
+    <li>制动结束后以新方向重新进入 ALIGN → RAMP 流程</li>
+  </ol>
+</section>
+
+<!-- ═══════ Six-step Timing ═══════ -->
+<section id="sixstep-timing">
+  <h2>六步换相时序分析</h2>
+  <div class="formula">
+    换相频率：f_comm = RPM × Pp / 60<br>
+    换相周期：T_comm = 60 / (RPM × Pp)<br><br>
+    在 RPM=1000，Pp=7 时：T_comm = 60/(1000×7) ≈ 8.57ms<br>
+    消隐时间（固定）：350µs = 350/8570 ≈ 4.1% 换相周期<br>
+    过零理论位置：T_comm/2（步序中点，30° 电角度内）<br><br>
+    RAMP 最小周期：1500µs → 最高无感同步速度约 RPM = 60M/(1500×7) ≈ 5714 RPM
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ SENSORS ═══════ -->
+<section id="as5600">
+  <h2>AS5600 磁编码器驱动</h2>
+  <h3>DMA 自动刷新架构</h3>
+  <p>初始化后，<code>as5600_start_dma_read()</code> 发起第一次 I2C+DMA 传输（写入寄存器地址 0x0E，然后读取 2 字节角度数据）。DMA 接收完成中断触发 <code>as5600_dma_complete_handler()</code>，解析角度后立即重新发起下一次传输，形成无限自循环，无需主循环介入。</p>
+  <div class="flow">
+    <div class="flow-step">
+      <div class="flow-num">1</div>
+      <div class="flow-text">DMA1_CH1 发送：I2C START + 设备地址(0x6C) + 寄存器地址(0x0E)</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-num">2</div>
+      <div class="flow-text">I2C 自动生成重复起始条件 Repeated Start</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-num">3</div>
+      <div class="flow-text">DMA1_CH2 接收：读回 2 字节原始角度（高字节 [11:8] + 低字节 [7:0]）</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-num">4</div>
+      <div class="flow-text">DMA RX 完成中断：<code>raw = (buf[0]&lt;&lt;8 | buf[1]) &amp; 0x0FFF</code> → 更新 <code>g_as5600_raw</code> → 重新发起传输</div>
+    </div>
+  </div>
+  <p>刷新频率约 2kHz（400kHz I2C，每次 2 字节传输消耗约 500µs）。主循环调用 <code>as5600_update_m0(&enc, now_us)</code> 读取最新原始值并计算累计角度与速度，无阻塞。</p>
+  <div class="formula">
+    shaft_angle += delta  （cumulative，跨圈处理）<br>
+    delta = angle_now − angle_prev，若 |delta| > π 则跨圈补偿<br>
+    velocity = delta / Ts  [rad/s]<br>
+    el_angle = norm( shaft_angle × POLE_PAIRS + offset )  mod 2π
+  </div>
+</section>
+
+<!-- ═══════ INA240 ═══════ -->
+<section id="ina240">
+  <h2>INA240 电流传感器驱动</h2>
+  <p>ADC1 工作于 APB2_CLK/6=12 MHz（满足 AT32F415 最大 ADC 频率 28MHz），右对齐 12-bit 模式，软件触发单通道顺序采样三相。上电时调用 <code>current_sense_calibrate()</code> 对 64 次样本取均值作为零偏基准。</p>
+  <div class="formula">
+    Iphase = (ADC_raw − offset) × Vref / (MaxADC × Gain × Rshunt)<br>
+            = (ADC_raw − offset) × 3.3 / (4096 × 20 × 0.005)<br>
+            = (ADC_raw − offset) × 0.008057 A/count
+  </div>
+  <p>FOC 模式每控制周期（~1ms）采样一次 Ia、Ib，Ic 通过 Ic=−(Ia+Ib) 计算（三相平衡约束）。六步模式当前仅用于遥测与潜在的过流检测，不参与换相逻辑。</p>
+</section>
+
+<!-- ═══════════════════════════════════════ VOFA+ ═══════ -->
+<section id="vofa">
+  <h2>VOFA+ 实时调试</h2>
+  <p>通过 USART3（PB10，115200bps，8N1）以 JustFloat 协议持续输出遥测帧。上位机 VOFA+ 配置为 <strong>JustFloat</strong> 帧类型、COM 口 115200bps 即可实时显示波形。</p>
+  <h3>帧格式</h3>
+  <pre><code>/* JustFloat 帧结构（每帧 N 个 float + 4 字节尾标） */
+[float0 4B][float1 4B]...[floatN-1 4B][0x00][0x00][0x80][0x7F]
+ ch0         ch1                        └────── IEEE 754 NaN ────┘
+
+/* 发帧速率：1kHz（每 1ms 一帧）via VOFA_WAVE_INTERVAL_US = 1000 */</code></pre>
+  <p>VOFA+ 中 NaN 尾标（0x00 0x00 0x80 0x7F）是 JustFloat 协议的帧同步标志，必须位于每帧末尾。</p>
+
+  <h3>FOC 模式通道（12 通道）</h3>
+  <div class="table-wrap">
+    <table>
+      <tr><th>ch</th><th>变量</th><th>单位</th><th>来源</th></tr>
+      <tr><td>0</td><td class="td-code">Ia</td><td>A</td><td>ADC 相 A 电流（INA240 输出，校零后）</td></tr>
+      <tr><td>1</td><td class="td-code">Ib</td><td>A</td><td>ADC 相 B 电流</td></tr>
+      <tr><td>2</td><td class="td-code">Ic</td><td>A</td><td>计算值 = −(Ia+Ib)</td></tr>
+      <tr><td>3</td><td class="td-code">Iα</td><td>A</td><td>Clarke 变换 α 分量</td></tr>
+      <tr><td>4</td><td class="td-code">Iβ</td><td>A</td><td>Clarke 变换 β 分量</td></tr>
+      <tr><td>5</td><td class="td-code">Id</td><td>A</td><td>Park 变换 d 轴（LPF 后）</td></tr>
+      <tr><td>6</td><td class="td-code">Iq</td><td>A</td><td>Park 变换 q 轴（LPF 后）</td></tr>
+      <tr><td>7</td><td class="td-code">Ud</td><td>V</td><td>d 轴 PI 输出电压</td></tr>
+      <tr><td>8</td><td class="td-code">Uq</td><td>V</td><td>q 轴 PI 输出电压（经包络钳位）</td></tr>
+      <tr><td>9</td><td class="td-code">velocity</td><td>rad/s</td><td>AS5600 估算轴速度（LPF 后）</td></tr>
+      <tr><td>10</td><td class="td-code">el_angle</td><td>rad</td><td>当前电角度 [0, 2π)</td></tr>
+      <tr><td>11</td><td class="td-code">Iq_target</td><td>A</td><td>q 轴电流设定值</td></tr>
+    </table>
+  </div>
+
+  <h3>六步模式通道（5 通道）</h3>
+  <div class="table-wrap">
+    <table>
+      <tr><th>ch</th><th>变量</th><th>单位</th><th>来源</th></tr>
+      <tr><td>0</td><td class="td-code">rpm</td><td>RPM</td><td>换相周期反推转速</td></tr>
+      <tr><td>1</td><td class="td-code">step</td><td>—</td><td>当前换相步序 0~5</td></tr>
+      <tr><td>2</td><td class="td-code">duty_norm</td><td>—</td><td>归一化占空比 duty/3600</td></tr>
+      <tr><td>3</td><td class="td-code">enc_angle</td><td>deg</td><td>AS5600 编码器角度（参考）</td></tr>
+      <tr><td>4</td><td class="td-code">enc_rpm</td><td>RPM</td><td>编码器速度换算 RPM（参考）</td></tr>
+    </table>
+  </div>
+  <p>六步模式的编码器通道为参照通道，可用于对比换相实际位置与 BEMF 估算位置的差异，帮助验证换相提前角。</p>
+</section>
+
+<!-- ═══════ API ═══════ -->
+<section id="api">
+  <h2>命令接口（完整签名）</h2>
+  <h3>FOC 模式 — <code>inc/foc_mode.h</code></h3>
+  <pre><code>/* 启动电机（ALIGN→OPENLOOP→FOC 流程）
+   direction: +1=CW, -1=CCW */
+void foc_cmd_start(int8_t direction);
+
+/* 停止电机（安全切断 PWM）*/
+void foc_cmd_stop(void);
+
+/* 速度控制模式，设定轴角速度 [rad/s]（正值随 direction 符号确定方向）*/
+void foc_cmd_set_speed(float speed_rad_s);
+
+/* 转矩控制模式，直接设定 Iq [A] */
+void foc_cmd_set_torque(float iq_a);
+
+/* 功率控制模式，设定目标功率 [W] */
+void foc_cmd_set_power(float power_w);
+
+/* 位置控制模式，设定目标轴角度 [rad]（累计绝对角） */
+void foc_cmd_set_position(float angle_rad);
+
+/* 电子制动，设定制动电流幅值 [A] */
+void foc_cmd_set_brake(float iq_abs_a);
+
+/* 回馈制动，设定功率上限 [W] 与电流限幅 [A] */
+void foc_cmd_set_regen_brake(float regen_power_w, float iq_abs_a);</code></pre>
+
+  <h3>六步模式 — <code>inc/sixstep_mode.h</code></h3>
+  <pre><code>/* 启动：direction=+1 为 CW，-1 为 CCW */
+void sixstep_cmd_start(int8_t direction);
+
+/* 停止（禁止所有输出，进入 IDLE）*/
+void sixstep_cmd_stop(void);
+
+/* 速度闭环：设定目标转速 [RPM]；负值触发反转流程 */
+void sixstep_cmd_set_rpm(float rpm);
+
+/* 开环占空比控制（0~3600），绕过速度 PI */
+void sixstep_cmd_set_duty(uint16_t duty);
+
+/* 主动制动，duration_us=0 持续制动直到手动释放 */
+void sixstep_cmd_brake(uint32_t duration_us);</code></pre>
+
+  <h3>遥测结构体 — <code>g_foc_telem</code></h3>
+  <pre><code>/* inc/foc_mode.h */
+typedef struct {
+    FocState_e    state;        /* FOC_STATE_IDLE / ALIGN / OPENLOOP / FOC */
+    FocCtrlMode_e ctrl_mode;    /* 当前控制模式 */
+    int8_t        direction;    /* 运行方向 */
+    float         el_angle;     /* 电角度 [rad] */
+    float         shaft_angle;  /* 轴累计角度 [rad] */
+    float         velocity;     /* 轴速度 [rad/s] */
+    float         Ia, Ib, Ic;   /* 三相电流 [A] */
+    float         Ialpha, Ibeta;/* Clarke 输出 */
+    float         Id, Iq;       /* Park 输出（LPF 后）*/
+    float         Ud, Uq;       /* 电压命令 [V] */
+    float         Ualpha, Ubeta;/* 逆 Park 输出 */
+    float         Iq_target;    /* 电流设定值 [A] */
+    float         power_est;    /* 估算功率 [W] */
+} FocTelemetry_t;
+
+extern volatile FocTelemetry_t g_foc_telem;</code></pre>
+</section>
+
+<!-- ═══════ Params ═══════ -->
+<section id="params">
+  <h2>关键参数配置</h2>
+  <div class="two-col">
+    <div>
+      <h3>FOC 参数（src/foc_mode.c）</h3>
+      <div class="table-wrap">
+        <table>
+          <tr><th>宏定义</th><th>值</th><th>说明</th></tr>
+          <tr><td class="td-code">POLE_PAIRS</td><td>7</td><td>电机极对数</td></tr>
+          <tr><td class="td-code">UDC</td><td>12.6 V</td><td>电源电压</td></tr>
+          <tr><td class="td-code">ULIMIT</td><td>7.27 V</td><td>Udc/√3，最大相电压</td></tr>
+          <tr><td class="td-code">CURRENT_LIMIT</td><td>5.0 A</td><td>峰值电流钳位</td></tr>
+          <tr><td class="td-code">VELOCITY_LIMIT</td><td>60 rad/s</td><td>≈ 82 RPM/极对数</td></tr>
+          <tr><td class="td-code">ALIGN_TIME_US</td><td>500000</td><td>对齐持续时间 500ms</td></tr>
+          <tr><td class="td-code">ALIGN_UD</td><td>1.5 V</td><td>对齐阶段 d 轴电压</td></tr>
+          <tr><td class="td-code">OL_UQ</td><td>1.2 V</td><td>开环阶段 q 轴电压</td></tr>
+          <tr><td class="td-code">OL_ACCEL</td><td>300 rad/s²</td><td>开环加速度</td></tr>
+          <tr><td class="td-code">HANDOFF_SPEED</td><td>50 rad/s</td><td>开环→FOC 切换阈值</td></tr>
+          <tr><td class="td-code">TORQUE_CONST</td><td>0.06 N·m/A</td><td>电机力矩常数 Kt</td></tr>
+          <tr><td class="td-code">REV_BRAKE_I</td><td>1.8 A</td><td>换向制动电流</td></tr>
+        </table>
+      </div>
+    </div>
+    <div>
+      <h3>六步参数（inc/motor_ctrl.h）</h3>
+      <div class="table-wrap">
+        <table>
+          <tr><th>宏定义</th><th>值</th><th>说明</th></tr>
+          <tr><td class="td-code">PWM6S_PERIOD</td><td>3600</td><td>TMR1 计数满值</td></tr>
+          <tr><td class="td-code">ALIGN_DUTY</td><td>1600</td><td>对齐占空比约 44%</td></tr>
+          <tr><td class="td-code">RAMP_START_PERIOD_US</td><td>20000</td><td>初始强制换相间隔 20ms</td></tr>
+          <tr><td class="td-code">RAMP_MIN_PERIOD_US</td><td>1500</td><td>最短强制换相间隔 1.5ms</td></tr>
+          <tr><td class="td-code">ZC_BLANKING_US</td><td>350</td><td>换相后消隐时间 350µs</td></tr>
+          <tr><td class="td-code">ZC_FILTER_CNT</td><td>5</td><td>过零连续确认次数</td></tr>
+          <tr><td class="td-code">STALL_FORCE_MAX</td><td>30</td><td>堵转判定连续强制换相次数</td></tr>
+          <tr><td class="td-code">speed_kp</td><td>1.0</td><td>速度 PI Kp（默认）</td></tr>
+          <tr><td class="td-code">speed_ki</td><td>8.0</td><td>速度 PI Ki（默认）</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ Protection ═══════ -->
+<section id="protection">
+  <h2>保护机制</h2>
+  <div class="table-wrap">
+    <table>
+      <tr><th>保护类型</th><th>实现方式</th><th>触发条件</th><th>处理方式</th></tr>
+      <tr><td>FOC 电流饱和</td><td>VESC 电压包络约束</td><td>Uq 超出电压圆范围</td><td>Uq/积分器钳位，不切状态</td></tr>
+      <tr><td>速度环输出钳位</td><td>PID limit 字段</td><td>速度误差大时</td><td>Iq_sp 钳位至 ±5A</td></tr>
+      <tr><td>六步堵转保护</td><td>stall_count 计数器</td><td>30次连续强制换相无过零</td><td>进入 FAULT，禁止输出</td></tr>
+      <tr><td>方向换向制动</td><td>reverse_pending 标志</td><td>FOC 模式下换向命令</td><td>先制动至低速再换向</td></tr>
+      <tr><td>低速回馈保护</td><td>POWER_MIN_OMEGA 下限</td><td>回馈/功率模式低速</td><td>ω 下限 5 rad/s，防除零</td></tr>
+      <tr><td>I2C 异常</td><td>I2C1_ERR_IRQHandler</td><td>总线仲裁失败、过载</td><td>中间件自动错误恢复</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ BUILD ═══════ -->
+<section id="build">
+  <h2>编译与烧录</h2>
+  <h3>工具链要求</h3>
+  <ul>
+    <li>arm-none-eabi-gcc ≥ 10.x（GCC 4.3.1 已验证）</li>
+    <li>CMake ≥ 3.20</li>
+    <li>Ninja 构建系统</li>
+    <li>OpenOCD 或 J-Link（烧录与调试）</li>
+  </ul>
+  <h3>编译流程</h3>
+  <pre><code># 配置（生成 build-gcc/ 目录）
+cmake -S . -B build-gcc -G Ninja \
+      -DCMAKE_TOOLCHAIN_FILE=cmake/arm-none-eabi-toolchain.cmake \
+      -DCMAKE_BUILD_TYPE=Debug
+
+# 编译
+cmake --build build-gcc --parallel
+
+# 输出文件
+# build-gcc/foc_esc.elf   ← GDB 调试用
+# build-gcc/foc_esc.hex   ← OpenOCD 烧录
+# build-gcc/foc_esc.bin   ← 绝对地址烧录</code></pre>
+  <h3>OpenOCD 烧录（ST-Link）</h3>
+  <pre><code>openocd -f openocd/at32f415_stlink.cfg \
+  -c "program {build-gcc/foc_esc.elf} verify reset exit"</code></pre>
+  <h3>切换控制模式后重新编译</h3>
+  <pre><code># 编辑 src/main.c 第 15 行：
+#define USE_BEMF_SIXSTEP   # 取消注释 → 六步模式
+# /* #define USE_BEMF_SIXSTEP */  # 保持注释 → FOC 模式
+
+# 增量编译（Ninja 自动检测宏变更）
+cmake --build build-gcc --parallel</code></pre>
+  <div class="notice ok">VS Code 任务已预配置 <strong>Build GCC Debug</strong> 和 <strong>Flash ST-Link ELF</strong>，可直接通过 Ctrl+Shift+B 完成一键编译烧录。</div>
+</section>
+
+<!-- ═══════ Tuning ═══════ -->
+<section id="tuning">
+  <h2>PID 调参指南</h2>
+  <h3>电流环调参（foc_mode.c pid_Iq / pid_Id）</h3>
+  <p>以 VOFA+ 观察 ch6(Iq) 跟踪 ch11(Iq_target) 的响应：</p>
+  <ol>
+    <li>将 Kp 从小增大，直到 Iq 响应快速但无明显超调（阶跃响应上升沿约 2~5ms）</li>
+    <li>增大 Ki 消除稳态误差，直到低频稳定性下降为止</li>
+    <li>若 Iq/Id 出现高频振荡，检查 LPF 时间常数是否过长（增大 lpf_Iq.Tf 滤除噪声）</li>
+  </ol>
+  <h3>速度环调参（foc_mode.c pid_vel）</h3>
+  <p>以 VOFA+ 观察 ch9(velocity) 跟踪速度设定值的响应：</p>
+  <ol>
+    <li>先仅启用 Kp，调至速度动态响应满意（通常 0.1~1.0）</li>
+    <li>加入 Ki 消除稳态误差（通常 1~10），注意 output_ramp 控制 Iq 斜率防止突变</li>
+    <li>若出现转速低频抖动，增大 lpf_vel.Tf（速度滤波时间常数，当前 5ms）</li>
+  </ol>
+  <h3>六步速度 PI（motor_ctrl 的 speed_kp/speed_ki）</h3>
+  <ol>
+    <li>先设 Ki=0，调 Kp 直到 RPM 响应无明显超调</li>
+    <li>加 Ki 消除稳差，注意 Ki 过大会导致 RUN 状态 duty 振荡，触发 BEMF 误检</li>
+  </ol>
+  <div class="notice">调参时建议使用转矩控制模式（<code>foc_cmd_set_torque()</code>）固定 Iq，直接验证电流环；再切换到速度模式验证速度环，避免两层 PID 同时引入干扰变量。</div>
+</section>
+
+<!-- ═══════ Refactor ═══════ -->
+<section id="refactor">
+  <h2>重构说明（v1→v2）</h2>
+  <p>原项目（v1）的主要问题与本次重构措施：</p>
+  <div class="table-wrap">
+    <table>
+      <tr><th>问题</th><th>v1 状态</th><th>v2 改进</th></tr>
+      <tr><td>main.c 过长</td><td>~1200 行，包含完整 FOC 状态机与电流环</td><td>83 行，仅做初始化分发，不含控制逻辑</td></tr>
+      <tr><td>模式耦合</td><td>FOC/六步代码混杂在同一函数体内</td><td>分离为 foc_mode.c 和 sixstep_mode.c，条件编译隔离</td></tr>
+      <tr><td>死代码</td><td>motor_bldc.c/h 定义但从未调用</td><td>已删除，清除 CMakeLists.txt 引用</td></tr>
+      <tr><td>电流环无抗饱和</td><td>仅做 clamp，积分器未钳位</td><td>引入 VESC 电压包络约束，积分器 clamp 至 max_Uq</td></tr>
+      <tr><td>AS5600 未启动</td><td>as5600_start_dma_read() 被注释</td><td>init 函数中已取消注释，DMA 自动刷新正常工作</td></tr>
+      <tr><td>换向逻辑脆弱</td><td>reverse_pending 依赖旧方向标志，可能符号错误</td><td>制动电流方向由当前速度符号决定，独立于旧方向标志</td></tr>
+      <tr><td>VOFA+ 缺失</td><td>仅 printf 文字输出，不支持 JustFloat 波形</td><td>新增 vofa_debug.c，12/5 通道 JustFloat，1kHz</td></tr>
+      <tr><td>FOC 无开环阶段</td><td>ALIGN 后直接跳 FOC，低速编码器噪声可能失步</td><td>增加 OPENLOOP 阶段（10→50 rad/s），确保稳定切换</td></tr>
+    </table>
+  </div>
+</section>
+
+</div><!-- .content -->
+</div><!-- #main -->
+
+<footer>AT32F415 BLDC ESC · 技术文档 v2.0 · FOC + Six-Step Dual Mode · 2026</footer>
+
+<script>
+(function(){
+  /* ── Menu toggle ── */
+  document.getElementById('menu-toggle').addEventListener('click', function(){
+    document.body.classList.toggle('menu-open');
+  });
+
+  /* ── Sidebar smooth scroll ── */
+  document.querySelectorAll('.sidebar-link').forEach(function(link){
+    link.addEventListener('click', function(e){
+      e.preventDefault();
+      var id = this.getAttribute('href');
+      var target = document.querySelector(id);
+      if(target){
+        var topOffset = target.getBoundingClientRect().top + window.pageYOffset - 68;
+        window.scrollTo({top: topOffset, behavior:'smooth'});
+      }
+      if(window.innerWidth < 700) document.body.classList.remove('menu-open');
+    });
+  });
+
+  /* ── Scroll spy: highlight active link AND scroll sidebar to keep it visible ── */
+  var links = document.querySelectorAll('.sidebar-link');
+  var sections = [];
+  links.forEach(function(l){
+    var s = document.querySelector(l.getAttribute('href'));
+    if(s) sections.push({el:s, link:l});
+  });
+
+  var sidebar = document.getElementById('sidebar');
+
+  function onScroll(){
+    var scrollY = window.pageYOffset + 80;
+    var active = sections[0];
+    for(var i=0; i<sections.length; i++){
+      if(sections[i].el.offsetTop <= scrollY) active = sections[i];
+    }
+    links.forEach(function(l){ l.classList.remove('active'); });
+    if(active){
+      active.link.classList.add('active');
+      /* ── 关键修复：将激活的菜单项滚入侧栏可视区 ── */
+      var linkTop    = active.link.offsetTop;
+      var linkBottom = linkTop + active.link.offsetHeight;
+      var sideTop    = sidebar.scrollTop;
+      var sideBottom = sideTop + sidebar.clientHeight;
+      if(linkTop < sideTop + 20){
+        sidebar.scrollTop = linkTop - 20;
+      } else if(linkBottom > sideBottom - 20){
+        sidebar.scrollTop = linkBottom - sidebar.clientHeight + 20;
+      }
+    }
+  }
+
+  window.addEventListener('scroll', onScroll, {passive:true});
+  onScroll(); /* run once on load */
+
+  /* ── Code copy buttons ── */
+  document.querySelectorAll('pre').forEach(function(pre){
+    var btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.title = '复制代码';
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+    btn.addEventListener('click', function(){
+      var text = pre.textContent.replace(/^\s*/, '');
+      navigator.clipboard.writeText(text).then(function(){
+        btn.classList.add('copied');
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+        setTimeout(function(){
+          btn.classList.remove('copied');
+          btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+        }, 2000);
+      });
+    });
+    pre.appendChild(btn);
+  });
+})();
+</script>
+</body>
+</html>

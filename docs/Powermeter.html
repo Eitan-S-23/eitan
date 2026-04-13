@@ -1,0 +1,1462 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WirelessPowermeter · 无线功率计技术文档</title>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --border: #e8e8e8;
+      --text: #1a1a1a;
+      --muted: #888;
+      --accent: #2d6be4;
+      --accent-light: #eef3fd;
+      --tag-bg: #f0f0f0;
+      --sidebar-w: 260px;
+      --header-h: 52px;
+      --radius: 6px;
+      --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Courier New', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    /* ── Header ── */
+    #header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 16px;
+      z-index: 100;
+    }
+
+    #menu-toggle {
+      width: 36px; height: 36px;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 4px;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    #menu-toggle:hover { background: var(--tag-bg); }
+    #menu-toggle span {
+      display: block;
+      width: 16px; height: 1.5px;
+      background: var(--text);
+      border-radius: 2px;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    body.menu-open #menu-toggle span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+    body.menu-open #menu-toggle span:nth-child(2) { opacity: 0; }
+    body.menu-open #menu-toggle span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+
+    #brand {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -.2px;
+      color: var(--text);
+    }
+    #brand sup {
+      font-size: 10px;
+      font-weight: 400;
+      color: var(--muted);
+      margin-left: 6px;
+    }
+
+    .header-meta {
+      margin-left: auto;
+      display: flex; gap: 8px;
+    }
+    .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: var(--accent-light);
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      position: fixed;
+      top: var(--header-h); left: 0; bottom: 0;
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      transform: translateX(0);
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 90;
+      padding: 16px 0 32px;
+    }
+    body:not(.menu-open) #sidebar { transform: translateX(calc(-1 * var(--sidebar-w))); }
+
+    .sidebar-section { margin-bottom: 8px; }
+    .sidebar-section-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 8px 20px 4px;
+    }
+    .sidebar-link {
+      display: block;
+      padding: 6px 20px;
+      color: #444;
+      text-decoration: none;
+      font-size: 13px;
+      border-left: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .sidebar-link:hover {
+      color: var(--accent);
+      background: var(--accent-light);
+      border-left-color: var(--accent);
+    }
+    .sidebar-link.active {
+      color: var(--accent);
+      background: var(--accent-light);
+      border-left-color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* ── Main ── */
+    #main {
+      margin-top: var(--header-h);
+      margin-left: var(--sidebar-w);
+      transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      min-height: calc(100vh - var(--header-h));
+    }
+    body:not(.menu-open) #main { margin-left: 0; }
+
+    .content {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 48px 32px 80px;
+    }
+
+    /* ── Sections ── */
+    section { margin-bottom: 64px; }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -.5px;
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+
+    h2 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 24px 0 10px;
+    }
+
+    p { color: #444; margin-bottom: 12px; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Hero ── */
+    .hero-desc {
+      font-size: 16px;
+      color: #555;
+      max-width: 600px;
+      line-height: 1.8;
+      margin-bottom: 28px;
+    }
+    .hero-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px; }
+    .tag {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: var(--tag-bg);
+      color: #555;
+    }
+
+    /* ── Cards ── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+    .card-icon {
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .card-desc {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th {
+      text-align: left;
+      padding: 8px 12px;
+      background: #f5f5f5;
+      border: 1px solid var(--border);
+      font-weight: 600;
+      color: #555;
+    }
+    td {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      color: #444;
+      vertical-align: top;
+    }
+    tr:hover td { background: #fafafa; }
+    .td-code {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: #f8f8f8;
+      color: #c0392b;
+    }
+
+    /* ── Code ── */
+    pre {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      border-radius: var(--radius);
+      padding: 20px;
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.7;
+      margin: 16px 0;
+      position: relative;
+    }
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 28px;
+      height: 28px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s, background 0.15s;
+      color: #cdd6f4;
+      padding: 0;
+    }
+    pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { background: rgba(255,255,255,0.18); }
+    .copy-btn.copied { color: #a6e3a1; border-color: #a6e3a1; }
+    code {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      background: #f3f3f3;
+      border-radius: 3px;
+      padding: 1px 5px;
+      color: #c0392b;
+    }
+    pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+
+    /* ── Arch diagram ── */
+    .arch {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin: 16px 0;
+    }
+    .arch-layer {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .arch-layer:last-child { border-bottom: none; }
+    .arch-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      min-width: 110px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .arch-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .arch-chip {
+      font-size: 11.5px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: var(--tag-bg);
+      color: #444;
+    }
+    .arch-layer.l1 { background: #eef3fd; }
+    .arch-layer.l1 .arch-chip { background: #d0e1fd; color: #1a4db7; }
+    .arch-layer.l2 { background: #f0faf5; }
+    .arch-layer.l2 .arch-chip { background: #c2edd8; color: #1a6648; }
+    .arch-layer.l3 { background: #fdf8ee; }
+    .arch-layer.l3 .arch-chip { background: #fae6b0; color: #7a5200; }
+    .arch-layer.l4 { background: #fdf3f0; }
+    .arch-layer.l4 .arch-chip { background: #f9cfc8; color: #8b1c0e; }
+    .arch-layer.l5 { background: #f8f0fe; }
+    .arch-layer.l5 .arch-chip { background: #e1c7fc; color: #5b1fa3; }
+
+    /* ── Stats ── */
+    .stats { display: flex; gap: 16px; flex-wrap: wrap; margin: 20px 0; }
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 24px;
+      min-width: 120px;
+      text-align: center;
+    }
+    .stat-num {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -.5px;
+    }
+    .stat-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Flow ── */
+    .flow {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin: 16px 0;
+    }
+    .flow-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px dashed #eee;
+    }
+    .flow-step:last-child { border-bottom: none; }
+    .flow-num {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .flow-text { font-size: 13px; color: #444; }
+    .flow-text strong { color: var(--text); }
+
+    /* ── Notice ── */
+    .notice {
+      border-left: 3px solid var(--accent);
+      background: var(--accent-light);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 16px;
+      margin: 16px 0;
+      font-size: 13px;
+      color: #335;
+    }
+    .notice.warn {
+      border-left-color: #e67e22;
+      background: #fef9f0;
+      color: #7a4500;
+    }
+    .notice.ok {
+      border-left-color: #27ae60;
+      background: #f0faf5;
+      color: #1a5c38;
+    }
+    .notice.err {
+      border-left-color: #e74c3c;
+      background: #fef0f0;
+      color: #7a1a1a;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 32px;
+      font-size: 12px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── Pipeline ── */
+    .pipeline { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin: 16px 0; }
+    .pipeline-step { display: flex; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #eee; }
+    .pipeline-step:last-child { border-bottom: none; }
+    .pipeline-step:nth-child(odd) { background: var(--surface); }
+    .pipeline-step:nth-child(even) { background: #f8f8f8; }
+    .pipeline-num {
+      width: 28px; height: 28px; border-radius: 50%; background: var(--accent);
+      color: #fff; font-size: 13px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 2px;
+    }
+    .pipeline-content { flex: 1; min-width: 0; }
+    .pipeline-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+    .pipeline-desc { font-size: 13px; color: #555; margin-bottom: 6px; }
+
+    /* ── Sidebar sublink ── */
+    .sidebar-sublink {
+      display: block; padding: 3px 20px 3px 30px;
+      color: #888; text-decoration: none; font-size: 12px;
+      border-left: 2px solid transparent; transition: all 0.15s;
+    }
+    .sidebar-sublink:hover { color: var(--accent); background: var(--accent-light); border-left-color: var(--accent); }
+    .sidebar-sublink.active { color: var(--accent); background: var(--accent-light); border-left-color: var(--accent); }
+
+    /* ── Collapsible sidebar item ── */
+    .sidebar-expand-row { display: flex; align-items: stretch; }
+    .sidebar-expand-row .sidebar-link { flex: 1; padding-right: 2px; }
+    .sidebar-chevron {
+      width: 28px; flex-shrink: 0; margin-right: 6px;
+      background: none; border: none; cursor: pointer;
+      color: var(--muted); font-size: 18px; font-weight: 300;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 3px; padding: 0; line-height: 1;
+      transition: transform 0.22s ease, color 0.15s, background 0.15s;
+    }
+    .sidebar-chevron:hover { color: var(--accent); background: var(--accent-light); }
+    .sidebar-expandable.open .sidebar-chevron { transform: rotate(90deg); }
+    .sidebar-submenu {
+      overflow: hidden; max-height: 0;
+      transition: max-height 0.28s ease-in-out;
+    }
+    .sidebar-expandable.open .sidebar-submenu { max-height: 400px; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 700px) {
+      .content { padding: 28px 18px 60px; }
+      h1 { font-size: 24px; }
+      .stats { gap: 10px; }
+      .card-grid { grid-template-columns: 1fr 1fr; }
+      .arch-layer { flex-direction: column; align-items: flex-start; gap: 8px; }
+    }
+  </style>
+</head>
+<body class="menu-open">
+
+<!-- Header -->
+<header id="header">
+  <button id="menu-toggle" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div id="brand">WirelessPowermeter 无线功率计 <sup>N32WB031 · Keil MDK-ARM</sup></div>
+  <div class="header-meta">
+    <span class="badge">BLE 5.0</span>
+    <span class="badge">INA226</span>
+  </div>
+</header>
+
+<!-- Sidebar -->
+<nav id="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">概览</div>
+    <a class="sidebar-link active" href="#overview">项目概览</a>
+    <a class="sidebar-link" href="#stats">项目统计</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">系统架构</div>
+    <a class="sidebar-link" href="#architecture">分层设计</a>
+    <a class="sidebar-link" href="#tasks">任务调度</a>
+    <a class="sidebar-link" href="#startup">启动流程</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">测量系统</div>
+    <a class="sidebar-link" href="#ina226">INA226 功率监测</a>
+    <a class="sidebar-link" href="#ranges">量程与校准</a>
+    <a class="sidebar-link" href="#autoswitch">自动量程切换</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">硬件驱动</div>
+    <a class="sidebar-link" href="#hardware">驱动层概览</a>
+    <a class="sidebar-link" href="#lcd">LCD 显示驱动</a>
+    <a class="sidebar-link" href="#eeprom">EEPROM 存储</a>
+    <a class="sidebar-link" href="#keys">按键与中断</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">用户界面</div>
+    <a class="sidebar-link" href="#gui">SCGUI 图形库</a>
+    <a class="sidebar-link" href="#pages">双页面设计</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">无线通信</div>
+    <a class="sidebar-link" href="#ble">BLE 5.0 广播</a>
+    <a class="sidebar-link" href="#protocols">通信协议</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">参考</div>
+    <a class="sidebar-link" href="#files">文件结构</a>
+    <a class="sidebar-link" href="#datastructs">核心数据结构</a>
+  </div>
+</nav>
+
+<!-- Main Content -->
+<main id="main">
+<div class="content">
+
+  <!-- ── Overview ── -->
+  <section id="overview">
+    <div class="section-label">Project Overview</div>
+    <h1>WirelessPowermeter 无线功率计</h1>
+    <p class="hero-desc">
+      基于 Nations Technology N32WB031 微控制器的便携式无线功率测量设备。
+      集成高精度 INA226 功率监测芯片、160×128 RGB565 TFT LCD、BLE 5.0 无线广播，
+      支持三档自动量程切换（0–0.8 mA / 0–90 mA / 0–5 A），
+      实时波形显示与参数配置，EEPROM 掉电保存校准参数。
+    </p>
+    <div class="hero-tags">
+      <span class="tag">N32WB031 Cortex-M0+</span>
+      <span class="tag">INA226 功率监测</span>
+      <span class="tag">BLE 5.0 iBeacon</span>
+      <span class="tag">3 档自动量程</span>
+      <span class="tag">160×128 RGB565 TFT</span>
+      <span class="tag">SCGUI 图形库</span>
+      <span class="tag">AT24C02 EEPROM</span>
+      <span class="tag">XPT2046</span>
+      <span class="tag">Keil MDK-ARM</span>
+    </div>
+    <div class="notice">
+      芯片: N32WB031 (ARM Cortex-M0+ @ 64 MHz) &nbsp;·&nbsp;
+      编译: Keil MDK-ARM &nbsp;·&nbsp;
+      工程文件: beacon.uvprojx &nbsp;·&nbsp;
+      HSI: 64 MHz · HSE: 32 MHz · LSE: 32.768 kHz
+    </div>
+  </section>
+
+  <!-- ── Stats ── -->
+  <section id="stats">
+    <h2>项目统计</h2>
+    <div class="stats">
+      <div class="stat"><div class="stat-num">3</div><div class="stat-label">量程档位</div></div>
+      <div class="stat"><div class="stat-num">36</div><div class="stat-label">最大电压 (V)</div></div>
+      <div class="stat"><div class="stat-num">5</div><div class="stat-label">最大电流 (A)</div></div>
+      <div class="stat"><div class="stat-num">20</div><div class="stat-label">GUI 刷新 (ms)</div></div>
+      <div class="stat"><div class="stat-num">2</div><div class="stat-label">UI 页面数</div></div>
+      <div class="stat"><div class="stat-num">4</div><div class="stat-label">调度任务数</div></div>
+    </div>
+
+    <h3>测量精度规格</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>量程</th><th>采样电阻</th><th>CURRENT_LSB</th><th>最大电流</th><th>电流单位</th></tr>
+        <tr><td><code>RANGE_2MA</code></td><td class="td-code">100 Ω</td><td>0.1 μA</td><td>0.8 mA</td><td>μA</td></tr>
+        <tr><td><code>RANGE_250MA</code></td><td class="td-code">780 mΩ</td><td>10 μA</td><td>90 mA</td><td>μA</td></tr>
+        <tr><td><code>RANGE_5A</code></td><td class="td-code">40 mΩ</td><td>1 mA</td><td>5000 mA</td><td>A</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Architecture ── -->
+  <section id="architecture">
+    <h2>系统架构</h2>
+    <p>项目采用 4 层分层架构，实现高内聚低耦合的设计目标：</p>
+    <div class="arch">
+      <div class="arch-layer l1">
+        <div class="arch-name">无线通信层</div>
+        <div class="arch-items">
+          <span class="arch-chip">BLE 5.0 iBeacon</span>
+          <span class="arch-chip">广播数据编码</span>
+          <span class="arch-chip">app_ble.c</span>
+          <span class="arch-chip">Nationstech BLE 库</span>
+        </div>
+      </div>
+      <div class="arch-layer l2">
+        <div class="arch-name">应用 GUI 层</div>
+        <div class="arch-items">
+          <span class="arch-chip">双页面 UI</span>
+          <span class="arch-chip">实时波形图</span>
+          <span class="arch-chip">参数配置界面</span>
+          <span class="arch-chip">app_gui.c</span>
+        </div>
+      </div>
+      <div class="arch-layer l3">
+        <div class="arch-name">业务逻辑层</div>
+        <div class="arch-items">
+          <span class="arch-chip">自动量程切换</span>
+          <span class="arch-chip">INA226 数据采集</span>
+          <span class="arch-chip">EEPROM 校准管理</span>
+          <span class="arch-chip">range_switch.c</span>
+        </div>
+      </div>
+      <div class="arch-layer l4">
+        <div class="arch-name">硬件驱动层</div>
+        <div class="arch-items">
+          <span class="arch-chip">INA226 (I2C)</span>
+          <span class="arch-chip">LCD (SPI)</span>
+          <span class="arch-chip">AT24C02 (I2C)</span>
+          <span class="arch-chip">XPT2046 (SPI)</span>
+          <span class="arch-chip">GPIO 按键</span>
+        </div>
+      </div>
+      <div class="arch-layer l5">
+        <div class="arch-name">GUI 框架层</div>
+        <div class="arch-items">
+          <span class="arch-chip">SCGUI 控件库</span>
+          <span class="arch-chip">sc_chart 波形图</span>
+          <span class="arch-chip">sc_label 标签</span>
+          <span class="arch-chip">堆内存管理</span>
+          <span class="arch-chip">字体/位图资源</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Tasks ── -->
+  <section id="tasks">
+    <h2>任务调度</h2>
+    <p>系统采用基于 TIM3 定时器（20 ms 周期）的协作式任务调度，共注册 4 个周期性任务：</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>任务 ID</th><th>函数</th><th>周期</th><th>功能描述</th></tr>
+        <tr><td>0</td><td class="td-code">app_gui_task</td><td>10 ms</td><td>GUI 更新，刷新波形图和数据标签</td></tr>
+        <tr><td>1</td><td class="td-code">Ina226GetPower</td><td>20 000 ms</td><td>INA226 数据采集 + 自动量程切换检查</td></tr>
+        <tr><td>2</td><td class="td-code">bsp_key_scan_start</td><td>30 ms</td><td>按键扫描，消抖处理</td></tr>
+        <tr><td>3</td><td class="td-code">reset_key</td><td>100 ms</td><td>按键状态复位</td></tr>
+      </table>
+    </div>
+
+    <h3>TIM3 配置</h3>
+<pre><code>// 定时器配置（n32wb03x_it.c）
+// PCLK1 = 64 MHz，Prescaler=640-1，Period=10-1
+// 定时器频率 = 64 MHz / 640 / 10 = 10 kHz → 中断周期 0.1 ms
+// 任务调度基准 = 0.1 ms × N（N为配置计数）
+
+TIM_Prescaler = 640 - 1;   // 分频: 64MHz / 640 = 100 kHz
+TIM_Period    = 10 - 1;     // 周期: 100 kHz / 10 = 10 kHz (0.1 ms 中断)
+
+// 中断优先级配置
+NVIC_Priority = 1;          // 较高优先级，确保定时精度</code></pre>
+
+    <div class="notice ok">
+      任务调度函数 <code>sc_create_task(id, func, period_ms)</code> 将任务注册到调度表，
+      TIM3 中断每 0.1 ms 触发一次，调度器累计计数后按周期调用各任务。
+    </div>
+  </section>
+
+  <!-- ── Startup ── -->
+  <section id="startup">
+    <h2>启动流程</h2>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>main()</strong> — 程序入口，初始化系统时钟 (64 MHz HSI)</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>SystemInit()</strong> — CMSIS 系统初始化，配置向量表和时钟树</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>bsp_lcd_init()</strong> — SPI1 初始化，LCD 160×128 复位并配置为 270° 旋转显示</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>mx_ina226_init()</strong> — I2C1 初始化，配置 INA226 工作模式和初始校准值</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">5</div>
+        <div class="flow-text"><strong>range_switch_init()</strong> — 从 AT24C02 读取上次保存的量程和校准参数</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">6</div>
+        <div class="flow-text"><strong>sc_gui_init() / app_gui_init()</strong> — 创建 SCGUI 控件树，初始化双页面 Canvas、波形图和标签</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">7</div>
+        <div class="flow-text"><strong>sc_create_task() × 4</strong> — 注册 GUI、采集、按键、复位四个调度任务</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">8</div>
+        <div class="flow-text"><strong>ble_init() / app_ble_start()</strong> — 启动 BLE 5.0 广播，iBeacon 格式，30 ms 快速广播间隔</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">9</div>
+        <div class="flow-text"><strong>TIM3 使能 + 主循环</strong> — 开启定时器中断，进入 while(1) 低功耗等待</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── INA226 ── -->
+  <section id="ina226">
+    <h2>INA226 功率监测</h2>
+    <p>
+      INA226 是 TI 出品的高精度电流/电压/功率监测芯片，通过 I2C 接口与主控通信（7位地址 0x40，写地址 0x80）。
+      设备配置为连续模式，对总线电压和分流电压同时进行转换。
+    </p>
+
+    <h3>寄存器配置</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>寄存器</th><th>地址</th><th>配置值</th><th>说明</th></tr>
+        <tr><td>Configuration</td><td class="td-code">0x00</td><td class="td-code">0x8000</td><td>自动模式，持续测量总线电压 + 分流电压</td></tr>
+        <tr><td>Calibration</td><td class="td-code">0x05</td><td>动态计算</td><td>CAL = 0.00512 / (CURRENT_LSB × R_SHUNT)</td></tr>
+        <tr><td>Bus Voltage</td><td class="td-code">0x02</td><td>只读</td><td>精度 1.25 mV/LSB，额定范围 0–36 V（寄存器满量程 40.96 V）</td></tr>
+        <tr><td>Shunt Voltage</td><td class="td-code">0x01</td><td>只读</td><td>精度 2.5 μV/LSB</td></tr>
+        <tr><td>Power</td><td class="td-code">0x03</td><td>只读</td><td>精度 25 × CURRENT_LSB (mW)</td></tr>
+        <tr><td>Current</td><td class="td-code">0x04</td><td>只读</td><td>精度 = CURRENT_LSB</td></tr>
+      </table>
+    </div>
+
+    <h3>校准值计算</h3>
+<pre><code>// bsp_ina226.c - 校准寄存器写入
+// 公式: CAL = 0.00512 / (CURRENT_LSB × R_SHUNT)
+
+// 量程 RANGE_5A:   CAL = 0.00512 / (0.001A × 0.04Ω)   = 128
+// 量程 RANGE_250MA: CAL = 0.00512 / (0.00001A × 0.78Ω) ≈ 657
+// 量程 RANGE_2MA:  CAL = 0.00512 / (0.0000001A × 100Ω) = 512
+
+void update_ina226_calibration(void) {
+    uint16_t cal = (uint16_t)(0.00512 / (CURRENT_LSB * R_SHUNT));
+    INA226_SendData(INA226_ADDR, INA226_REG_CALIBRATION, cal);
+}</code></pre>
+
+    <h3>数据读取流程</h3>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>GetVoltage()</strong> — 多次采样总线电压寄存器 (0x02)，取平均值，单位 mV</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>Get_Shunt_Current()</strong> — 读取电流寄存器 (0x04)，乘以 CURRENT_LSB 换算，支持负电流（有符号16位）</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>get_power()</strong> — 读取功率寄存器 (0x03)，乘以功率 LSB（25 × CURRENT_LSB）</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>auto_range_switch(I_current)</strong> — 将当前电流值传入量程切换模块，判断是否需要档位调整</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Ranges ── -->
+  <section id="ranges">
+    <h2>量程与校准</h2>
+    <p>三个量程通过独立 GPIO 控制 MOS 管来切换不同采样电阻，每个量程有独立的 CURRENT_LSB 和 R_SHUNT 配置：</p>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>量程枚举</th><th>采样电阻</th><th>控制 GPIO</th><th>向上切换阈值</th><th>向下切换阈值</th></tr>
+        <tr><td><code>RANGE_2MA (0)</code></td><td class="td-code">100 Ω (PB1)</td><td class="td-code">PB1</td><td>0.8 mA</td><td>—</td></tr>
+        <tr><td><code>RANGE_250MA (1)</code></td><td class="td-code">780 mΩ (PB2)</td><td class="td-code">PB2</td><td>90 mA</td><td>0.8 mA</td></tr>
+        <tr><td><code>RANGE_5A (2)</code></td><td class="td-code">40 mΩ (PB3)</td><td class="td-code">PB3</td><td>—</td><td>40 mA</td></tr>
+      </table>
+    </div>
+
+    <h3>量程切换函数</h3>
+<pre><code>// range_switch.c
+void set_current_range(CurrentRange range) {
+    // 关闭所有量程 GPIO
+    GPIO_WriteBit(GPIOB, GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3, Bit_RESET);
+
+    switch(range) {
+        case RANGE_2MA:
+            GPIO_WriteBit(GPIOB, GPIO_PIN_1, Bit_SET);  // 100Ω
+            R_SHUNT      = 100.0f;
+            CURRENT_LSB  = 0.0000001;  // 0.1 μA
+            break;
+        case RANGE_250MA:
+            GPIO_WriteBit(GPIOB, GPIO_PIN_2, Bit_SET);  // 780mΩ
+            R_SHUNT      = 0.78f;
+            CURRENT_LSB  = 0.00001;    // 10 μA
+            break;
+        case RANGE_5A:
+            GPIO_WriteBit(GPIOB, GPIO_PIN_3, Bit_SET);  // 40mΩ
+            R_SHUNT      = 0.04f;
+            CURRENT_LSB  = 0.001;      // 1 mA
+            break;
+    }
+    update_ina226_calibration();  // 重新写入校准寄存器
+}</code></pre>
+
+    <h3>EEPROM 参数存储布局</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>地址偏移</th><th>内容</th><th>大小</th></tr>
+        <tr><td class="td-code">0x00</td><td>全局 R_STEP 步进值</td><td>多字节浮点编码</td></tr>
+        <tr><td class="td-code">0x01–0x1E</td><td>量程 0 (RANGE_2MA) 配置</td><td>30 字节</td></tr>
+        <tr><td class="td-code">0x1F–0x3C</td><td>量程 1 (RANGE_250MA) 配置</td><td>30 字节</td></tr>
+        <tr><td class="td-code">0x3D–0x5A</td><td>量程 2 (RANGE_5A) 配置</td><td>30 字节</td></tr>
+        <tr><td class="td-code">0xFF</td><td>初始化标志位（=1 代表已写入）</td><td>1 字节</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── AutoSwitch ── -->
+  <section id="autoswitch">
+    <h2>自动量程切换算法</h2>
+    <p>自动量程切换采用带防抖（迟滞）的状态机，避免在阈值附近频繁切换量程：</p>
+
+<pre><code>// range_switch.c - 自动量程切换核心逻辑
+#define HYSTERESIS_THRESHOLD  1   // 防抖触发次数
+
+CurrentRange auto_range_switch(float current_ma) {
+    float abs_current = fabs(current_ma);
+    CurrentRange cur = get_current_range();
+
+    if (cur == RANGE_2MA) {
+        if (abs_current > 0.8f) {            // 超出 0.8mA → 切换到 RANGE_250MA
+            hysteresis_counter++;
+            if (hysteresis_counter >= HYSTERESIS_THRESHOLD) {
+                set_current_range(RANGE_250MA);
+                hysteresis_counter = 0;
+            }
+        } else { hysteresis_counter = 0; }
+
+    } else if (cur == RANGE_250MA) {
+        if (abs_current > 90.0f) {           // 超出 90mA → 切换到 RANGE_5A
+            set_current_range(RANGE_5A);
+        } else if (abs_current < 0.8f) {     // 低于 0.8mA → 切换回 RANGE_2MA
+            set_current_range(RANGE_2MA);
+        }
+
+    } else if (cur == RANGE_5A) {
+        if (abs_current < 40.0f) {           // 低于 40mA → 切换回 RANGE_250MA
+            set_current_range(RANGE_250MA);
+        }
+    }
+    return get_current_range();
+}</code></pre>
+
+    <div class="notice ok">
+      向上切换（精度降低）采用防抖计数，需要连续 HYSTERESIS_THRESHOLD 次超阈值才执行；
+      向下切换（精度提高）直接执行，确保快速响应小电流测量需求。
+    </div>
+
+    <h3>浮点参数编码算法</h3>
+    <p>将浮点数编码为 EEPROM 可存储的整数对 (a, b)，满足 value ≈ a × 10<sup>b</sup>：</p>
+<pre><code>// 例：R_SHUNT = 0.04 → a=4, b=-2  (0.04 = 4 × 10^-2)
+// 例：CURRENT_LSB = 0.001 → 存储 log10(0.001) = -3
+
+void encode_r_shunt(float value, uint8_t *a, int8_t *b) {
+    int exp = (int)floor(log10(fabs(value)));
+    float mantissa = value / pow(10, exp);  // 1.0 ≤ mantissa < 10
+    *a = (uint8_t)round(mantissa * 10);     // 乘以10存为整数 (10–99)
+    *b = (int8_t)(exp - 1);
+}</code></pre>
+  </section>
+
+  <!-- ── Hardware ── -->
+  <section id="hardware">
+    <h2>硬件驱动层概览</h2>
+    <div class="notice ok">
+      项目通过 <code>hardware/</code> 目录实现硬件抽象，LCD、INA226、AT24C02、XPT2046 均封装独立驱动，
+      上层应用无需关心寄存器操作细节。
+    </div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">📊</div>
+        <div class="card-title">INA226 功率芯片</div>
+        <div class="card-desc">
+          bsp_ina226.c/h<br>
+          接口: I2C1 (100 kHz)<br>
+          地址: 0x80 (写) / 0x81 (读)<br>
+          电压精度: 1.25 mV/bit
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🖥️</div>
+        <div class="card-title">LCD 显示屏</div>
+        <div class="card-desc">
+          LCD.c/h<br>
+          接口: SPI1 (高速)<br>
+          分辨率: 160×128 (RGB565)<br>
+          旋转: 270°，CS=PA0 DC=PB0
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">💾</div>
+        <div class="card-title">AT24C02 EEPROM</div>
+        <div class="card-desc">
+          i2c_eeprom.c/h<br>
+          接口: I2C1 (100 kHz)<br>
+          地址: 0xA0 (7位: 0x50)<br>
+          容量: 256 字节
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">👆</div>
+        <div class="card-title">XPT2046</div>
+        <div class="card-desc">
+          xpt2046.c/h<br>
+          接口: SPI (与LCD共用)<br>
+          12 位 ADC 精度<br>
+          支持校准和坐标映射
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔘</div>
+        <div class="card-title">硬件按键</div>
+        <div class="card-desc">
+          n32wb03x_it.c<br>
+          KEY1=PB11 KEY2=PB12 KEY3=PB13<br>
+          EXTI4_12 外部中断<br>
+          30 ms 消抖周期
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📡</div>
+        <div class="card-title">BLE 5.0 模块</div>
+        <div class="card-desc">
+          app_ble.c<br>
+          N32WB031 集成 BLE<br>
+          iBeacon 格式广播<br>
+          快速 30 ms / 慢速 100 ms
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── LCD ── -->
+  <section id="lcd">
+    <h2>LCD 显示驱动</h2>
+
+    <h3>SPI 接口与引脚配置</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>信号</th><th>GPIO</th><th>功能</th></tr>
+        <tr><td>CS (片选)</td><td class="td-code">PA0</td><td>低电平有效，选中 LCD</td></tr>
+        <tr><td>DC (数据/命令)</td><td class="td-code">PB0</td><td>高=数据，低=命令</td></tr>
+        <tr><td>RST (复位)</td><td class="td-code">PA3</td><td>低电平复位 LCD 控制器</td></tr>
+        <tr><td>BLK (背光)</td><td class="td-code">PA6</td><td>PWM 或直接 GPIO 控制背光亮度</td></tr>
+        <tr><td>SPI_CLK</td><td class="td-code">SPI1_CLK</td><td>时钟线 (APB2 总线)</td></tr>
+        <tr><td>SPI_MOSI</td><td class="td-code">SPI1_MOSI</td><td>主设备输出数据</td></tr>
+      </table>
+    </div>
+
+    <h3>LCD 基础绘图 API</h3>
+<pre><code>// LCD.h - 核心绘图接口
+void LCD_Init(void);                           // 初始化，配置方向270°
+void LCD_SetRotation(uint8_t dir);             // 设置旋转方向
+void LCD_DrawPoint(uint16_t x, uint16_t y, uint16_t color);
+void LCD_DrawLine(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color);
+void LCD_DrawRectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color);
+void LCD_Fill(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color);
+void LCD_ShowChar(uint16_t x, uint16_t y, char ch, uint16_t fc, uint16_t bc, uint8_t sz);
+void LCD_ShowString(uint16_t x, uint16_t y, const char *str, uint16_t fc, uint16_t bc, uint8_t sz);
+void LCD_ShowChinese(uint16_t x, uint16_t y, uint8_t *font, uint16_t fc, uint16_t bc);</code></pre>
+  </section>
+
+  <!-- ── EEPROM ── -->
+  <section id="eeprom">
+    <h2>AT24C02 EEPROM 存储</h2>
+    <p>AT24C02 通过 I2C1 接口连接，用于掉电保存量程校准参数，确保每次开机恢复上次使用的配置：</p>
+
+<pre><code>// i2c_eeprom.c - 基础读写接口
+void I2C_EE_WriteByte(uint8_t addr, uint8_t data) {
+    I2C_GenerateSTART(I2C1, ENABLE);
+    // ... 等待 ACK，发送设备地址 0xA0
+    I2C_SendData(I2C1, addr);   // 写入字节地址
+    I2C_SendData(I2C1, data);   // 写入数据
+    I2C_GenerateSTOP(I2C1, ENABLE);
+    Delay_Ms(5);                // 等待内部写周期
+}
+
+uint8_t I2C_EE_ReadByte(uint8_t addr) {
+    // 先写地址，再重新 START 切换为读模式
+    I2C_GenerateSTART(I2C1, ENABLE);
+    // ... 发送 0xA0 (写)，发送字节地址
+    I2C_GenerateSTART(I2C1, ENABLE);
+    // ... 发送 0xA1 (读)，读取数据
+    return I2C_ReceiveData(I2C1);
+}</code></pre>
+
+    <div class="notice warn">
+      AT24C02 写操作后需等待约 5 ms 完成内部 EEPROM 写周期，写入期间不可再次访问设备。
+      每字节写寿命约 100 万次，量程切换时按需写入，避免频繁写操作。
+    </div>
+  </section>
+
+  <!-- ── Keys ── -->
+  <section id="keys">
+    <h2>按键与中断</h2>
+
+    <h3>按键 GPIO 配置</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>按键</th><th>GPIO</th><th>EXTI 线</th><th>GUI 命令</th><th>功能</th></tr>
+        <tr><td>KEY1 (左)</td><td class="td-code">PB11</td><td>EXTI5</td><td><code>CMD_LEFT</code></td><td>返回上一页 / 保存参数</td></tr>
+        <tr><td>KEY2 (右)</td><td class="td-code">PB12</td><td>EXTI6</td><td><code>CMD_RIGHT</code></td><td>进入下一页 / 选中参数</td></tr>
+        <tr><td>KEY3 (下)</td><td class="td-code">PB13</td><td>EXTI7</td><td><code>CMD_DOWN</code></td><td>选择下一参数 / 减小值÷10</td></tr>
+      </table>
+    </div>
+
+    <div class="notice">
+      中断注册为 <code>EXTI4_12_IRQn</code>，三个按键共享同一中断处理函数，
+      通过读取各 GPIO 电平区分触发源。消抖通过任务调度器 30 ms 周期扫描实现。
+    </div>
+
+    <h3>按键命令处理</h3>
+<pre><code>// app_gui.c - 按键命令处理
+void app_gui_key_handler(uint8_t cmd) {
+    if (current_page == PAGE_WAVEFORM) {
+        if (cmd == CMD_RIGHT) switch_to_page(PAGE_CONFIG);
+
+    } else if (current_page == PAGE_CONFIG) {
+        switch(cmd) {
+            case CMD_LEFT:   // 返回波形页，保存修改的参数
+                save_range_config_to_eeprom();
+                switch_to_page(PAGE_WAVEFORM);
+                break;
+            case CMD_RIGHT:  // 高亮选中下一个参数
+                selected_param = (selected_param + 1) % PARAM_COUNT;
+                break;
+            case CMD_UP:     // 增大当前参数值 × 10
+                adjust_param(selected_param, +1);
+                break;
+            case CMD_DOWN:   // 减小当前参数值 ÷ 10
+                adjust_param(selected_param, -1);
+                break;
+        }
+    }
+}</code></pre>
+  </section>
+
+  <!-- ── GUI ── -->
+  <section id="gui">
+    <h2>SCGUI 图形库</h2>
+    <p>
+      SCGUI 是项目内置的轻量级嵌入式 GUI 框架，基于对象树模型管理 UI 控件，
+      支持颜色主题、动态布局。
+    </p>
+
+    <h3>框架目录结构</h3>
+<pre><code>SCGUI/
+├── APP/
+│   ├── app_gui.c         # 主应用窗口（447 行）
+│   └── app_gui.h
+├── widget/
+│   ├── src/
+│   │   ├── sc_chart.c    # 波形图控件
+│   │   ├── sc_label.c    # 文本标签控件
+│   │   ├── sc_frame.c    # 边框容器控件
+│   │   ├── sc_canvas.c   # 多页面画布控件
+│   │   └── sc_obj_widget.c  # 对象管理
+│   └── heap/             # 动态内存管理
+├── font/                 # 字体点阵资源（ASCII + 汉字）
+├── bmp/                  # 位图图标资源
+└── tool/                 # 工具（GIF 解码等）</code></pre>
+
+    <h3>主要控件 API</h3>
+<pre><code>// 波形图控件 (sc_chart.c)
+sc_create_chart(&Canvas, &WaveChart,
+    -40, 0,           // x, y 位置（相对父容器）
+    200, 120,         // width, height
+    C_WHITE,          // 前景色
+    C_DIM_GRAY,       // 背景色
+    10, 30,           // X轴 / Y轴 分度值
+    ALIGN_NONE);
+
+// 更新波形数据点（滚动显示）
+sc_set_chart_vol(channel, &WaveChart, value, max_value);
+
+// 文本标签控件 (sc_label.c)
+sc_create_label(&Page1, &I_V_Label, x, y, w, h,
+    "0.00 uA", font, C_RED, C_WHITE);
+sc_set_label_text(&I_V_Label, buf);  // 动态更新文字</code></pre>
+  </section>
+
+  <!-- ── Pages ── -->
+  <section id="pages">
+    <h2>双页面 UI 设计</h2>
+    <p>应用界面分为两个页面，通过左右键在 Canvas 控件中滑动切换：</p>
+
+    <h3>页面 1：实时波形显示</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">📈</div>
+        <div class="card-title">波形图 (WaveChart)</div>
+        <div class="card-desc">居中显示电流随时间变化的滚动折线图，背景深灰色，曲线白色，10 ms 刷新一次</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚡</div>
+        <div class="card-title">电流标签 (I_V)</div>
+        <div class="card-desc">红色边框，实时显示当前电流值，单位随量程自动切换 (μA / mA / A)</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔋</div>
+        <div class="card-title">电压标签 (U_V)</div>
+        <div class="card-desc">蓝色边框，实时显示总线电压，单位 mV，精度 1.25 mV</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">💡</div>
+        <div class="card-title">功率标签 (P_V)</div>
+        <div class="card-desc">橙红色边框，实时显示功率，单位 mW，从 INA226 功率寄存器直读</div>
+      </div>
+    </div>
+
+    <h3>页面 2：参数配置界面</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>卡片</th><th>颜色</th><th>内容</th><th>可调</th></tr>
+        <tr><td>电源状态</td><td>灰色</td><td>ON / OFF 状态指示</td><td>否</td></tr>
+        <tr><td>当前量程</td><td>绿色</td><td>2mA / 90mA / 5A</td><td>否（自动切换）</td></tr>
+        <tr><td>R_STEP</td><td>深灰</td><td>参数调整步进值</td><td>是（×10 / ÷10）</td></tr>
+        <tr><td>R_SHUNT</td><td>深灰</td><td>当前量程采样电阻 (Ω)</td><td>是</td></tr>
+        <tr><td>CURRENT_LSB</td><td>深灰</td><td>电流 LSB 值 (A)</td><td>是</td></tr>
+      </table>
+    </div>
+<pre><code>// app_gui.c - 页面2 参数调整逻辑
+// 按右键高亮选中参数，上/下键调整值（×10 或 ÷10）
+// 按左键时自动调用 save_range_config_to_eeprom() 保存
+
+void adjust_param(uint8_t param_idx, int direction) {
+    switch(param_idx) {
+        case PARAM_R_STEP:
+            R_STEP = (direction > 0) ? R_STEP * 10 : R_STEP / 10;
+            break;
+        case PARAM_R_SHUNT:
+            R_SHUNT = (direction > 0) ? R_SHUNT * 10 : R_SHUNT / 10;
+            update_ina226_calibration();
+            break;
+        case PARAM_CURRENT_LSB:
+            CURRENT_LSB = (direction > 0) ? CURRENT_LSB * 10 : CURRENT_LSB / 10;
+            update_ina226_calibration();
+            break;
+    }
+}</code></pre>
+  </section>
+
+  <!-- ── BLE ── -->
+  <section id="ble">
+    <h2>BLE 5.0 广播</h2>
+    <p>
+      N32WB031 集成 BLE 5.0 射频，设备以 iBeacon 格式广播测量数据，
+      方便手机 APP 或 BLE 扫描仪实时读取电流和电压值。
+    </p>
+
+    <h3>iBeacon 广播数据格式</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>字节偏移</th><th>长度</th><th>内容</th><th>说明</th></tr>
+        <tr><td>0–8</td><td>9 字节</td><td>Apple iBeacon Header</td><td>固定: 0x02 0x01 0x06 0x1A 0xFF 0x4C 0x00 0x02 0x15</td></tr>
+        <tr><td>9–24</td><td>16 字节</td><td>UUID</td><td>0x10112233...CCDDEEFF（固定设备标识）</td></tr>
+        <tr><td>25–26</td><td>2 字节</td><td>Major</td><td>编码当前电流值（高8位+低8位）</td></tr>
+        <tr><td>27–28</td><td>2 字节</td><td>Minor</td><td>编码当前电压值（高8位+低8位）</td></tr>
+        <tr><td>29</td><td>1 字节</td><td>Measured Power</td><td>-50 dBm（1米处参考功率）</td></tr>
+      </table>
+    </div>
+
+    <h3>广播配置</h3>
+<pre><code>// app_ble.c - BLE 广播参数
+#define ADV_INTERVAL_FAST   30    // 快速广播间隔: 30 ms
+#define ADV_INTERVAL_SLOW  100    // 慢速广播间隔: 100 ms
+#define TX_POWER_MAX_VAL    0     // 发射功率 (最大)
+#define RSSI_1M            -50    // 1米处参考 RSSI
+
+// UUID 定义（用于 APP 端识别设备类型）
+static uint8_t ibc_uuid[] = {
+    0x10, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+    0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF
+};
+
+// 广播数据更新（50 ms 周期）：将测量值编码到 Major/Minor
+ibc_data[25] = (uint8_t)(I_current >> 8);
+ibc_data[26] = (uint8_t)(I_current &amp; 0xFF);
+ibc_data[27] = (uint8_t)((uint16_t)I_voltage >> 8);
+ibc_data[28] = (uint8_t)((uint16_t)I_voltage &amp; 0xFF);</code></pre>
+
+    <div class="notice ok">
+      设备名称通过 <code>CUSTOM_DEVICE_NAME</code> 宏定义，可在广播扫描列表中识别。
+      广播数据每 50 ms 更新一次，确保手机端接收到最新测量值。
+    </div>
+  </section>
+
+  <!-- ── Protocols ── -->
+  <section id="protocols">
+    <h2>通信协议</h2>
+
+    <h3>I2C 通信时序（INA226 寄存器写）</h3>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>等待总线空闲</strong> — 检测 SCL/SDA 均为高电平</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>发送 START</strong> — SDA 高→低跳变（SCL 高电平期间）</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>发送设备地址</strong> — 7位地址 0x40 + 写位(0) = 0x80，等待 ACK</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>发送寄存器地址</strong> — 1字节寄存器指针，等待 ACK</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">5</div>
+        <div class="flow-text"><strong>发送数据高字节</strong> — 16位数据高8位，等待 ACK</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">6</div>
+        <div class="flow-text"><strong>发送数据低字节</strong> — 16位数据低8位，等待 ACK</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">7</div>
+        <div class="flow-text"><strong>发送 STOP</strong> — SDA 低→高跳变（SCL 高电平期间），释放总线</div>
+      </div>
+    </div>
+
+    <h3>I2C 设备地址分配</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>设备</th><th>7位地址</th><th>写地址</th><th>读地址</th><th>总线速率</th></tr>
+        <tr><td>INA226 功率监测</td><td class="td-code">0x40</td><td class="td-code">0x80</td><td class="td-code">0x81</td><td>100 kHz</td></tr>
+        <tr><td>AT24C02 EEPROM</td><td class="td-code">0x50</td><td class="td-code">0xA0</td><td class="td-code">0xA1</td><td>100 kHz</td></tr>
+      </table>
+    </div>
+
+    <h3>SPI 设备分配</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>设备</th><th>接口</th><th>CS 引脚</th><th>用途</th></tr>
+        <tr><td>LCD 显示屏</td><td>SPI1</td><td class="td-code">PA0</td><td>像素数据写入，高速模式</td></tr>
+        <tr><td>XPT2046</td><td>SPI (共用)</td><td>独立 CS</td><td>ADC 读取</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Files ── -->
+  <section id="files">
+    <h2>文件结构</h2>
+    <div class="table-wrap">
+      <table>
+        <tr><th>路径</th><th>行数</th><th>功能描述</th></tr>
+        <tr><td class="td-code">user/main.c</td><td>~120</td><td>程序入口，时钟/外设初始化，任务注册，主循环</td></tr>
+        <tr><td class="td-code">user/app_ble.c</td><td>~200</td><td>BLE 5.0 iBeacon 广播，测量数据编码传输</td></tr>
+        <tr><td class="td-code">user/range_switch.c</td><td>~300</td><td>三档量程管理，自动切换算法，EEPROM 读写</td></tr>
+        <tr><td class="td-code">user/n32wb03x_it.c</td><td>~100</td><td>中断服务程序：TIM3 任务调度 + EXTI 按键</td></tr>
+        <tr><td class="td-code">hardware/INA226/bsp_ina226.c</td><td>~250</td><td>INA226 寄存器操作，I2C 通信，多次采样</td></tr>
+        <tr><td class="td-code">hardware/AT24C02/i2c_eeprom.c</td><td>~180</td><td>AT24C02 字节级读写，DMA 缓冲区操作</td></tr>
+        <tr><td class="td-code">hardware/LCD/LCD.c</td><td>1105</td><td>LCD SPI 驱动，基础图形 API，字符渲染</td></tr>
+        <tr><td class="td-code">hardware/XPT2046/xpt2046.c</td><td>224</td><td>触摸屏坐标读取，压力检测，坐标校准</td></tr>
+        <tr><td class="td-code">hardware/LCD/sys.c</td><td>179</td><td>系统级初始化辅助函数</td></tr>
+        <tr><td class="td-code">SCGUI/APP/app_gui.c</td><td>447</td><td>UI 控件树创建，波形更新，按键响应，页面切换</td></tr>
+        <tr><td class="td-code">SCGUI/widget/src/sc_chart.c</td><td>~200</td><td>波形图控件实现，滚动显示，多通道支持</td></tr>
+        <tr><td class="td-code">MDK-ARM/beacon.uvprojx</td><td>—</td><td>Keil 主工程文件，包含所有源文件和链接配置</td></tr>
+      </table>
+    </div>
+
+    <h3>目录树</h3>
+<pre><code>WirelessPowermeter/
+├── user/                          # 用户应用代码
+│   ├── main.c                     # 程序入口
+│   ├── app_ble.c / .h             # BLE 应用
+│   ├── range_switch.c / .h        # 量程切换逻辑
+│   └── n32wb03x_it.c              # 中断处理
+├── hardware/                      # 硬件驱动
+│   ├── INA226/                    # 功率监测芯片驱动
+│   │   ├── bsp_ina226.c
+│   │   └── bsp_ina226.h
+│   ├── AT24C02/                   # EEPROM 驱动
+│   │   ├── i2c_eeprom.c
+│   │   └── i2c_eeprom.h
+│   ├── LCD/                       # 显示屏驱动
+│   │   ├── LCD.c / LCD.h
+│   │   └── sys.c / sys.h
+│   └── XPT2046/                   # XPT2046 驱动
+│       ├── xpt2046.c
+│       └── xpt2046.h
+├── SCGUI/                         # GUI 框架库
+│   ├── APP/                       # 应用界面
+│   ├── widget/src/                # 控件实现
+│   ├── font/                      # 字体资源
+│   ├── bmp/                       # 位图资源
+│   └── tool/                      # 工具（GIF 等）
+├── firmware/                      # MCU 固件库
+│   ├── CMSIS/                     # ARM 标准库
+│   └── n32wb03x_std_periph_driver/ # N32 外设驱动
+├── middlewares/Nationstech/        # BLE 中间件
+├── system/delay/                  # 延时函数
+└── MDK-ARM/                       # Keil 工程文件
+    ├── beacon.uvprojx             # 主工程
+    └── beacon.uvoptx              # 工程选项</code></pre>
+  </section>
+
+  <!-- ── Data Structs ── -->
+  <section id="datastructs">
+    <h2>核心数据结构</h2>
+
+    <h3>INA226 测量数据结构</h3>
+<pre><code>// bsp_ina226.h
+typedef struct {
+    float   voltageVal;       // 总线电压 (mV), 精度 1.25 mV/bit
+    float   Shunt_voltage;    // 分流电压 (μV), 精度 2.5 μV/bit
+    double  Shunt_Current;    // 电流 (mA), 精度 = CURRENT_LSB × 1000
+    float   Power_Val;        // 功率 (W)
+    float   Power;            // 功率 (mW)
+    uint32_t ina226_id;       // 芯片 ID（用于通信验证）
+} INA226;
+
+// 全局测量结果（每 20s 更新一次）
+extern double  I_current;         // 当前电流值 (mA)
+extern float   I_voltage;         // 当前电压值 (mV)
+extern float   power;             // 当前功率值 (mW)
+extern volatile double CURRENT_LSB;   // 电流 LSB (A)
+extern volatile float  R_SHUNT;       // 采样电阻 (Ω)
+extern volatile float  R_STEP;        // 参数调整步进</code></pre>
+
+    <h3>量程配置数据结构</h3>
+<pre><code>// range_switch.h
+typedef enum {
+    RANGE_2MA   = 0,   // 0–0.8 mA，采样电阻 100 Ω
+    RANGE_250MA = 1,   // 0–90 mA，采样电阻 780 mΩ
+    RANGE_5A    = 2    // 0–5 A，采样电阻 40 mΩ
+} CurrentRange;
+
+typedef struct {
+    CurrentRange  range;                // 量程枚举
+    float         r_shunt;             // 采样电阻值 (Ω)
+    double        current_lsb;         // 电流 LSB (A)
+    float         max_current;         // 最大量程电流 (mA)
+    float         switch_up_threshold; // 向上切换阈值 (mA)
+    float         switch_down_threshold; // 向下切换阈值 (mA)
+    uint8_t       hysteresis_count;    // 防抖计数
+    const char   *current_unit;        // 显示单位字符串
+    const char   *voltage_unit;
+    const char   *power_unit;
+} RangeConfig;
+
+// 各量程默认配置
+static const RangeConfig range_defaults[] = {
+    { RANGE_2MA,   100.0f, 1e-7, 0.8f,   0.8f,   0.0f,  0, "uA", "mV", "uW" },
+    { RANGE_250MA, 0.78f,  1e-5, 90.0f,  90.0f,  0.8f,  0, "uA", "mV", "mW" },
+    { RANGE_5A,    0.04f,  1e-3, 5000.0f, 0.0f, 40.0f,  0, "A",  "V",  "W"  },
+};</code></pre>
+  </section>
+
+</div>
+
+<footer>
+  WirelessPowermeter 无线功率计 &nbsp;·&nbsp; N32WB031 (ARM Cortex-M0+ @ 64 MHz) &nbsp;·&nbsp;
+  INA226 + BLE 5.0 + SCGUI &nbsp;·&nbsp; Keil MDK-ARM
+</footer>
+</main>
+
+<script>
+  // ── Menu Toggle ──
+  const toggle = document.getElementById('menu-toggle');
+  toggle.addEventListener('click', () => {
+    document.body.classList.toggle('menu-open');
+  });
+
+  // ── Active link on scroll ──
+  const sections = document.querySelectorAll('section[id]');
+  const links = document.querySelectorAll('.sidebar-link, .sidebar-sublink');
+
+  function updateActive() {
+    let current = '';
+    sections.forEach(sec => {
+      const top = sec.getBoundingClientRect().top;
+      if (top <= 80) current = sec.id;
+    });
+    links.forEach(a => {
+      const isActive = a.getAttribute('href') === '#' + current;
+      a.classList.toggle('active', isActive);
+      if (isActive) a.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+  }
+
+  document.getElementById('main').addEventListener('scroll', updateActive);
+  window.addEventListener('scroll', updateActive);
+
+  // ── Copy button ──
+  document.querySelectorAll('pre').forEach(pre => {
+    const btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.title = '复制代码';
+    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    btn.addEventListener('click', () => {
+      const code = pre.querySelector('code') ? pre.querySelector('code').innerText : pre.innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        btn.classList.add('copied');
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+        }, 2000);
+      });
+    });
+    pre.appendChild(btn);
+  });
+
+  // ── Smooth scroll ──
+  links.forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (window.innerWidth < 700) document.body.classList.remove('menu-open');
+    });
+  });
+</script>
+</body>
+</html>

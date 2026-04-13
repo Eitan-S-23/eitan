@@ -1,0 +1,1586 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BSDIFF + LZMA + AES128 · 固件差分压缩加密系统</title>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --border: #e8e8e8;
+      --text: #1a1a1a;
+      --muted: #888;
+      --accent: #2d6be4;
+      --accent-light: #eef3fd;
+      --tag-bg: #f0f0f0;
+      --sidebar-w: 260px;
+      --header-h: 52px;
+      --radius: 6px;
+      --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Courier New', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    /* ── Header ── */
+    #header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 16px;
+      z-index: 100;
+    }
+
+    #menu-toggle {
+      width: 36px; height: 36px;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 4px;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    #menu-toggle:hover { background: var(--tag-bg); }
+    #menu-toggle span {
+      display: block;
+      width: 16px; height: 1.5px;
+      background: var(--text);
+      border-radius: 2px;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    body.menu-open #menu-toggle span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+    body.menu-open #menu-toggle span:nth-child(2) { opacity: 0; }
+    body.menu-open #menu-toggle span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+
+    #brand {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -.2px;
+      color: var(--text);
+    }
+    #brand sup {
+      font-size: 10px;
+      font-weight: 400;
+      color: var(--muted);
+      margin-left: 6px;
+    }
+
+    .header-meta {
+      margin-left: auto;
+      display: flex; gap: 8px;
+    }
+    .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: var(--accent-light);
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      position: fixed;
+      top: var(--header-h); left: 0; bottom: 0;
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      transform: translateX(0);
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 90;
+      padding: 16px 0 32px;
+    }
+    body:not(.menu-open) #sidebar { transform: translateX(calc(-1 * var(--sidebar-w))); }
+
+    .sidebar-section { margin-bottom: 8px; }
+    .sidebar-section-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 8px 20px 4px;
+    }
+    .sidebar-link {
+      display: block;
+      padding: 6px 20px;
+      color: #444;
+      text-decoration: none;
+      font-size: 13px;
+      border-left: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .sidebar-link:hover {
+      color: var(--accent);
+      background: var(--accent-light);
+      border-left-color: var(--accent);
+    }
+    .sidebar-link.active {
+      color: var(--accent);
+      background: var(--accent-light);
+      border-left-color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* ── Main ── */
+    #main {
+      margin-top: var(--header-h);
+      margin-left: var(--sidebar-w);
+      transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      min-height: calc(100vh - var(--header-h));
+    }
+    body:not(.menu-open) #main { margin-left: 0; }
+
+    .content {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 48px 32px 80px;
+    }
+
+    /* ── Sections ── */
+    section { margin-bottom: 64px; }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -.5px;
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+
+    h2 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 24px 0 10px;
+    }
+
+    p { color: #444; margin-bottom: 12px; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Hero ── */
+    .hero-desc {
+      font-size: 16px;
+      color: #555;
+      max-width: 600px;
+      line-height: 1.8;
+      margin-bottom: 28px;
+    }
+    .hero-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px; }
+    .tag {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: var(--tag-bg);
+      color: #555;
+    }
+
+    /* ── Cards ── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+    .card-icon {
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .card-desc {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th {
+      text-align: left;
+      padding: 8px 12px;
+      background: #f5f5f5;
+      border: 1px solid var(--border);
+      font-weight: 600;
+      color: #555;
+    }
+    td {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      color: #444;
+      vertical-align: top;
+    }
+    tr:hover td { background: #fafafa; }
+    .td-code {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: #f8f8f8;
+      color: #c0392b;
+    }
+
+    /* ── Code ── */
+    pre {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      border-radius: var(--radius);
+      padding: 20px;
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.7;
+      margin: 16px 0;
+      position: relative;
+    }
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 28px;
+      height: 28px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s, background 0.15s;
+      color: #cdd6f4;
+      padding: 0;
+    }
+    pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { background: rgba(255,255,255,0.18); }
+    .copy-btn.copied { color: #a6e3a1; border-color: #a6e3a1; }
+    code {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      background: #f3f3f3;
+      border-radius: 3px;
+      padding: 1px 5px;
+      color: #c0392b;
+    }
+    pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+
+    /* ── Arch diagram ── */
+    .arch {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin: 16px 0;
+    }
+    .arch-layer {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .arch-layer:last-child { border-bottom: none; }
+    .arch-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      min-width: 110px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .arch-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .arch-chip {
+      font-size: 11.5px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: var(--tag-bg);
+      color: #444;
+    }
+    .arch-layer.l1 { background: #eef3fd; }
+    .arch-layer.l1 .arch-chip { background: #d0e1fd; color: #1a4db7; }
+    .arch-layer.l2 { background: #f0faf5; }
+    .arch-layer.l2 .arch-chip { background: #c2edd8; color: #1a6648; }
+    .arch-layer.l3 { background: #fdf8ee; }
+    .arch-layer.l3 .arch-chip { background: #fae6b0; color: #7a5200; }
+    .arch-layer.l4 { background: #fdf3f0; }
+    .arch-layer.l4 .arch-chip { background: #f9cfc8; color: #8b1c0e; }
+
+    /* ── Stats ── */
+    .stats { display: flex; gap: 16px; flex-wrap: wrap; margin: 20px 0; }
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 24px;
+      min-width: 120px;
+      text-align: center;
+    }
+    .stat-num {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -.5px;
+    }
+    .stat-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Pipeline ── */
+    .pipeline { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin: 16px 0; }
+    .pipeline-step { display: flex; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #eee; }
+    .pipeline-step:last-child { border-bottom: none; }
+    .pipeline-step:nth-child(odd) { background: var(--surface); }
+    .pipeline-step:nth-child(even) { background: #f8f8f8; }
+    .pipeline-num {
+      width: 28px; height: 28px; border-radius: 50%; background: var(--accent);
+      color: #fff; font-size: 13px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 2px;
+    }
+    .pipeline-content { flex: 1; min-width: 0; }
+    .pipeline-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+    .pipeline-desc { font-size: 13px; color: #555; margin-bottom: 6px; }
+
+    /* ── Notice ── */
+    .notice {
+      border-left: 3px solid var(--accent);
+      background: var(--accent-light);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 16px;
+      margin: 16px 0;
+      font-size: 13px;
+      color: #335;
+    }
+    .notice.warn {
+      border-left-color: #e67e22;
+      background: #fef9f0;
+      color: #7a4500;
+    }
+    .notice.ok {
+      border-left-color: #27ae60;
+      background: #f0faf5;
+      color: #1a5c38;
+    }
+    .notice.err {
+      border-left-color: #e74c3c;
+      background: #fef0f0;
+      color: #7a1a1a;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #d3d4d6;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #757575;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 32px;
+      font-size: 12px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 700px) {
+      .content { padding: 28px 18px 60px; }
+      h1 { font-size: 24px; }
+      .stats { gap: 10px; }
+      .card-grid { grid-template-columns: 1fr 1fr; }
+      .arch-layer { flex-direction: column; align-items: flex-start; gap: 8px; }
+    }
+
+    /* ── Flow diagram ── */
+    .flow {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin: 16px 0;
+    }
+    .flow-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px dashed #eee;
+    }
+    .flow-step:last-child { border-bottom: none; }
+    .flow-num {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .flow-text { font-size: 13px; color: #444; }
+    .flow-text strong { color: var(--text); }
+  </style>
+</head>
+<body class="menu-open">
+
+<!-- Header -->
+<header id="header">
+  <button id="menu-toggle" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div id="brand">BSDIFF + LZMA + AES128 <sup>固件差分压缩加密系统</sup></div>
+  <div class="header-meta">
+    <span class="badge">差分编码</span>
+    <span class="badge">压缩加密</span>
+  </div>
+</header>
+
+<!-- Sidebar -->
+<nav id="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">概览</div>
+    <a class="sidebar-link active" href="#overview">项目概览</a>
+    <a class="sidebar-link" href="#stats">项目统计</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">差分压缩加密</div>
+    <a class="sidebar-link" href="#bsdiff-flow">处理流程</a>
+    <a class="sidebar-link" href="#bsdiff-step1">步骤 1: 二进制差分</a>
+    <a class="sidebar-link" href="#bsdiff-step2">步骤 2: LZMA 压缩</a>
+    <a class="sidebar-link" href="#bsdiff-step3">步骤 3: AES 加密</a>
+    <a class="sidebar-link" href="#bsdiff-format">补丁文件格式</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">解密解压还原</div>
+    <a class="sidebar-link" href="#bspatch-flow">处理流程</a>
+    <a class="sidebar-link" href="#bspatch-step1">步骤 1: AES 解密</a>
+    <a class="sidebar-link" href="#bspatch-step2">步骤 2: LZMA 解压</a>
+    <a class="sidebar-link" href="#bspatch-step3">步骤 3: 二进制还原</a>
+    <a class="sidebar-link" href="#bspatch-verify">校验验证</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">核心技术</div>
+    <a class="sidebar-link" href="#bsdiff-algo">BSDIFF 算法</a>
+    <a class="sidebar-link" href="#lzma-algo">LZMA 压缩</a>
+    <a class="sidebar-link" href="#aes-algo">AES-128-CTR 加密</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">参考</div>
+    <a class="sidebar-link" href="#structure">项目结构</a>
+    <a class="sidebar-link" href="#config">配置参数</a>
+  </div>
+</nav>
+
+<!-- Main Content -->
+<main id="main">
+<div class="content">
+
+  <!-- ── Overview ── -->
+  <section id="overview">
+    <div class="section-label">Project Overview</div>
+    <h1>BSDIFF + LZMA + AES128</h1>
+    <p class="hero-desc">
+      一套完整的固件更新差分压缩加密系统，集成了业界标准的二进制差分算法(BSDIFF)、高效的LZMA压缩算法和军用级AES-128-CTR加密。
+      专为嵌入式设备和MCU固件OTA(Over-The-Air)更新设计，提供最小补丁体积、安全传输和灵活的部署方案。
+    </p>
+    <div class="hero-tags">
+      <span class="tag">BSDIFF 二进制差分</span>
+      <span class="tag">LZMA 高效压缩</span>
+      <span class="tag">AES-128-CTR 加密</span>
+      <span class="tag">MCU 嵌入式支持</span>
+      <span class="tag">CRC32 完整性校验</span>
+      <span class="tag">流式处理</span>
+      <span class="tag">可配置参数</span>
+      <span class="tag">Windows GUI</span>
+    </div>
+    <div class="notice">
+      系统分为两个核心部分：<strong>bsdiff（差分压缩加密）</strong>和<strong>bspatch（解密解压还原）</strong>，
+      形成完整的编码-解码流程，支持多个MCU平台（STM32、ESP32、NRF52、GD32等）。
+    </div>
+  </section>
+
+  <!-- ── Stats ── -->
+  <section id="stats">
+    <h2>项目统计</h2>
+    <div class="stats">
+      <div class="stat"><div class="stat-num">2</div><div class="stat-label">核心程序</div></div>
+      <div class="stat"><div class="stat-num">3</div><div class="stat-label">处理步骤</div></div>
+      <div class="stat"><div class="stat-num">70+</div><div class="stat-label">LZMA 源文件</div></div>
+      <div class="stat"><div class="stat-num">4</div><div class="stat-label">MCU 平台</div></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- ════════════ BSDIFF 差分压缩加密部分 ════════════ -->
+  <!-- ══════════════════════════════════════════════════════ -->
+
+  <section id="bsdiff-flow">
+    <h2>BSDIFF：差分压缩加密程序</h2>
+    <p>bsdiff 程序负责将旧文件和新文件进行比较，生成最小化的补丁包。
+      整个过程分为三个关键步骤，每一步都是独立的、可配置的处理阶段。</p>
+
+    <h3>完整处理流程</h3>
+    <div class="pipeline">
+      <div class="pipeline-step">
+        <div class="pipeline-num">1</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">读取文件</div>
+          <div class="pipeline-desc">将旧文件和新文件完全加载到内存中，为后续处理做准备</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">2</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">二进制差分（BSDIFF）</div>
+          <div class="pipeline-desc">分析两个文件的差异，生成包含所有变化信息的差分数据</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">3</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">LZMA 压缩</div>
+          <div class="pipeline-desc">对差分数据进行高效压缩，显著减小补丁文件体积</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">4</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">AES-128-CTR 加密</div>
+          <div class="pipeline-desc">对压缩后的补丁进行加密，确保安全传输和版权保护</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">5</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">生成补丁文件</div>
+          <div class="pipeline-desc">输出最终的加密补丁包，包含头部信息和完整的补丁数据</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Step 1: BSDIFF ── -->
+  <section id="bsdiff-step1">
+    <h2>步骤 1：二进制差分（BSDIFF）</h2>
+    <p>BSDIFF 算法是二进制差分的行业标准，它通过分析两个文件的字节级差异来生成高效的补丁数据。</p>
+
+    <h3>算法原理</h3>
+    <p>BSDIFF 算法采用扫描算法，核心思路是：</p>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>构建后缀数组</strong> — 对旧文件构建后缀数组和后缀树，支持快速的子串匹配</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>扫描新文件</strong> — 逐字节扫描新文件，寻找在旧文件中的最长匹配段</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>生成三类控制块</strong> — 记录匹配段长度、新增数据长度、位置跳转值</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>输出补丁数据</strong> — 包含控制块、旧文件差分数据、新增数据三部分</div>
+      </div>
+    </div>
+
+    <h3>补丁数据结构</h3>
+    <p>BSDIFF 生成的补丁包含三类数据流：</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>数据类型</th><th>用途</th><th>内容</th></tr>
+        <tr><td>控制块</td><td>指导还原过程</td><td>匹配长度、新增长度、位置偏移</td></tr>
+        <tr><td>差分数据</td><td>与旧文件比较</td><td>(新文件字节 - 旧文件字节)的差值</td></tr>
+        <tr><td>新增数据</td><td>完全新增内容</td><td>新文件中旧文件没有的字节</td></tr>
+      </table>
+    </div>
+
+    <h3>代码示例</h3>
+<pre><code>// bsdiff/main.c - 差分创建流程
+int bsdiff(const uint8_t* old, int64_t oldsize,
+           const uint8_t* new, int64_t newsize,
+           struct bsdiff_stream* stream);
+
+// 使用示例
+FILE *temp_diff_file = fopen(TEMP_DIFF_FILE, "wb");
+stream.malloc = malloc;
+stream.free = free;
+stream.write = file_write;
+stream.opaque = temp_diff_file;
+
+if (bsdiff(old_data, old_size, new_data, new_size, &stream)) {
+    fprintf(stderr, "bsdiff failed\n");
+    return 1;
+}
+// 差分数据已写入临时文件
+fclose(temp_diff_file);</code></pre>
+
+    <div class="notice ok">
+      BSDIFF 的关键优势是生成的补丁极小，通常只有文件大小变化部分的几个百分比。
+      后续的 LZMA 压缩进一步减小体积，最终补丁通常只需原文件 1-5% 的大小。
+    </div>
+  </section>
+
+  <!-- ── Step 2: LZMA ── -->
+  <section id="bsdiff-step2">
+    <h2>步骤 2：LZMA 压缩</h2>
+    <p>LZMA(Lempel-Ziv-Markov Chain)是一种高效的数据压缩算法，特别适合嵌入式系统。
+      在本项目中，LZMA 对 BSDIFF 输出的补丁数据进行二次压缩。</p>
+
+    <h3>压缩参数配置</h3>
+    <p>LZMA 的压缩效果和性能受以下参数影响：</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>参数</th><th>范围</th><th>默认值</th><th>说明</th></tr>
+        <tr><td class="td-code">lc</td><td>0-8</td><td>2</td><td>Literal Context bits - 增大提高压缩率但耗费内存</td></tr>
+        <tr><td class="td-code">lp</td><td>0-4</td><td>0</td><td>Literal Position bits - 与 lc 一起决定处理效率</td></tr>
+        <tr><td class="td-code">pb</td><td>0-4</td><td>0</td><td>Position Bits - 位置编码的位数</td></tr>
+        <tr><td class="td-code">fb</td><td>5-273</td><td>64</td><td>Fast Bytes - 寻找匹配串的最大长度</td></tr>
+        <tr><td class="td-code">dictSize</td><td>1KB+</td><td>4KB</td><td>字典大小 - MCU 环境推荐 4-16KB</td></tr>
+        <tr><td class="td-code">algo</td><td>0-1</td><td>1</td><td>算法选择：0=快速，1=正常</td></tr>
+      </table>
+    </div>
+
+    <h3>压缩过程</h3>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>分配缓冲区</strong> — 为压缩后的数据分配足够的内存</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>初始化编码器</strong> — 设置 LZMA 属性（lc/lp/pb 等），创建编码环境</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>执行压缩</strong> — 对差分数据进行编码，输出压缩数据和 LZMA 属性头</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>保存头部</strong> — 记录 LZMA 属性和原始大小供解压使用</div>
+      </div>
+    </div>
+
+    <h3>代码示例</h3>
+<pre><code>// bsdiff/main.c - LZMA 压缩配置
+CLzmaEncProps props;
+LzmaEncProps_Init(&props);
+props.level = 9;              // 最大压缩级别
+props.dictSize = dict_size_kb * 1024;  // 转换为字节
+props.lc = lc;
+props.lp = lp;
+props.pb = pb;
+props.fb = fb;
+props.algo = algo;
+props.numThreads = 1;         // 单线程（MCU 限制）
+props.writeEndMark = 1;       // 写入结束标记
+
+// 执行压缩
+SRes lzma_res = LzmaEncode(
+    compressedBuffer, &compressedSize,      // 输出：压缩数据和大小
+    temp_buffer, diff_size,                 // 输入：差分数据和大小
+    &props, header.ph_lzma_props, &propsSize,
+    props.writeEndMark,
+    NULL,                                   // 无进度回调
+    &g_Alloc, &g_Alloc);
+
+printf("Compressed from %lld to %zu bytes\n", diff_size, compressedSize);</code></pre>
+
+    <div class="notice warn">
+      LZMA 压缩速度取决于 dictSize 和压缩级别。对于 MCU 环保系统，推荐 dictSize 为 4-16KB，
+      以平衡压缩率和解压时的内存占用。
+    </div>
+  </section>
+
+  <!-- ── Step 3: AES Encryption ── -->
+  <section id="bsdiff-step3">
+    <h2>步骤 3：AES-128-CTR 加密</h2>
+    <p>AES-128-CTR 是高级加密标准(AES)在计数器(CTR)模式下的实现，提供流密码的灵活性和 AES 的安全性。
+      CTR 模式特别适合不同长度的数据加密，无需填充。</p>
+
+    <h3>CTR 模式工作原理</h3>
+    <p>CTR 模式(Counter Mode)将加密分为两个阶段：</p>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>Nonce + Counter</strong> — 生成 12 字节随机 Nonce 和 4 字节计数器初值，合成 16 字节初值</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>加密计数器</strong> — 用密钥加密初值，生成密钥流</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>XOR 平文</strong> — 将密钥流与平文 XOR，得到密文</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>计数器递增</strong> — 每次加密 16 字节后，计数器递增，重复步骤 2-4</div>
+      </div>
+    </div>
+
+    <h3>加密文件格式</h3>
+    <p>加密补丁文件的结构：</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>部分</th><th>大小</th><th>内容</th></tr>
+        <tr><td>Nonce + Counter</td><td>16 字节</td><td>随机 Nonce（12 字节）+ 初始计数器（4 字节，通常为 0）</td></tr>
+        <tr><td>加密数据</td><td>可变</td><td>LZMA 压缩后的补丁数据，使用 AES-CTR 加密</td></tr>
+      </table>
+    </div>
+
+    <h3>加密参数</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>参数</th><th>值</th><th>说明</th></tr>
+        <tr><td>密钥</td><td>16 字节</td><td>AES-128 密钥（128 位），固定密钥或从配置获取</td></tr>
+        <tr><td>密钥类型</td><td>对称</td><td>加密和解密使用同一密钥</td></tr>
+        <tr><td>Nonce</td><td>12 字节</td><td>密码学安全随机数，每次加密不同</td></tr>
+        <tr><td>计数器</td><td>4 字节</td><td>通常初始化为 0，随数据加密而递增</td></tr>
+      </table>
+    </div>
+
+    <h3>代码示例</h3>
+<pre><code>// bsdiff/main.c - AES-128-CTR 加密流程
+void Aes128_Ctr(char *patch, char *encrypt) {
+    // 固定密钥（应从安全源获取）
+    uint8_t key[16] = {
+        0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
+        0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c
+    };
+
+    // 生成随机 Nonce（12 字节）和初始计数器（4 字节为 0）
+    uint8_t nonce_counter[16];
+    // Windows: CryptGenRandom()，Linux: /dev/urandom
+    generate_random_nonce(nonce_counter, 12);
+    nonce_counter[12] = nonce_counter[13] = 0;
+    nonce_counter[14] = nonce_counter[15] = 0;
+
+    // 初始化 AES 上下文
+    AES_ctx ctx;
+    AES_init_ctx(&ctx, key);
+
+    // 打开输入文件（压缩后的补丁）
+    FILE *infile = fopen(patch, "rb");
+    FILE *outfile = fopen(encrypt, "wb");
+
+    // 先将 nonce_counter 写入文件头（16 字节）
+    fwrite(nonce_counter, 1, 16, outfile);
+
+    // 读取、加密并写入数据
+    uint8_t buffer[256];
+    size_t bytes_read;
+    while ((bytes_read = fread(buffer, 1, sizeof(buffer), infile)) > 0) {
+        // CTR 模式加密（加密和解密操作相同）
+        AES_CTR_encrypt(&ctx, buffer, bytes_read, nonce_counter);
+        fwrite(buffer, 1, bytes_read, outfile);
+    }
+
+    fclose(infile);
+    fclose(outfile);
+}</code></pre>
+
+    <div class="notice ok">
+      AES-CTR 的优势：
+      <br/>• 流密码特性 — 不需要填充，适合任意长度数据
+      <br/>• 平行化 — 每个块可独立加密，支持并行处理
+      <br/>• 安全性 — 军用级加密标准，256 位等效强度（AES-128）
+    </div>
+  </section>
+
+  <!-- ── Patch File Format ── -->
+  <section id="bsdiff-format">
+    <h2>补丁文件格式详解</h2>
+    <p>最终生成的补丁文件包含头部和数据两部分，头部保存了解压和还原所需的所有元信息。</p>
+
+    <h3>补丁头部结构（32 字节）</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>字段</th><th>字节数</th><th>字节序</th><th>内容</th></tr>
+        <tr><td class="td-code">ph_hcrc</td><td>4</td><td>大端</td><td>头部自身的 CRC32 校验值</td></tr>
+        <tr><td class="td-code">ph_psize</td><td>4</td><td>大端</td><td>LZMA 压缩后的补丁数据大小</td></tr>
+        <tr><td class="td-code">ph_osize</td><td>4</td><td>小端</td><td>旧文件大小（用于验证）</td></tr>
+        <tr><td class="td-code">ph_nsize</td><td>4</td><td>小端</td><td>新文件大小（目标大小）</td></tr>
+        <tr><td class="td-code">ph_ocrc</td><td>4</td><td>大端</td><td>旧文件的 CRC32 校验值</td></tr>
+        <tr><td class="td-code">ph_ncrc</td><td>4</td><td>大端</td><td>新文件的 CRC32 校验值</td></tr>
+        <tr><td class="td-code">ph_lzma_props</td><td>5</td><td>-</td><td>LZMA 属性（lc/lp/pb 等）</td></tr>
+        <tr><td class="td-code">ph_original_size</td><td>8</td><td>小端</td><td>BSDIFF 原始差分数据大小</td></tr>
+      </table>
+    </div>
+
+    <h3>完整文件布局</h3>
+<pre><code>补丁文件结构：
+┌─────────────────────────────────────┐
+│ 补丁头部（32 字节）                  │
+│  - ph_hcrc        (4 字节)          │
+│  - ph_psize       (4 字节)          │
+│  - ph_osize       (4 字节)          │
+│  - ph_nsize       (4 字节)          │
+│  - ph_ocrc        (4 字节)          │
+│  - ph_ncrc        (4 字节)          │
+│  - ph_lzma_props  (5 字节)          │
+│  - ph_original_size (8 字节)        │
+├─────────────────────────────────────┤
+│ LZMA 压缩的 BSDIFF 差分数据          │
+│  （大小 = ph_psize）                 │
+│  ┌─────────────────────────────────┐│
+│  │ 控制块                          ││
+│  ├─────────────────────────────────┤│
+│  │ 差分数据                        ││
+│  ├─────────────────────────────────┤│
+│  │ 新增数据                        ││
+│  └─────────────────────────────────┘│
+├─────────────────────────────────────┤
+│ [可选] AES 加密包装                  │
+│  ┌─────────────────────────────────┐│
+│  │ Nonce + Counter（16 字节）       ││
+│  ├─────────────────────────────────┤│
+│  │ 加密的补丁数据                  ││
+│  └─────────────────────────────────┘│
+└─────────────────────────────────────┘</code></pre>
+
+    <h3>校验机制</h3>
+    <p>补丁文件使用多层校验确保完整性：</p>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>头部 CRC</strong> — 验证头部本身未损坏，保护所有元信息</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>旧文件 CRC</strong> — 验证输入文件是否与预期匹配</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>新文件 CRC</strong> — 验证还原后的文件完整性</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- ════════════ BSPATCH 解密解压还原部分 ════════════ -->
+  <!-- ══════════════════════════════════════════════════════ -->
+
+  <section id="bspatch-flow">
+    <h2>BSPATCH：解密解压还原程序</h2>
+    <p>bspatch 程序负责将加密补丁还原为新文件，过程完全逆向于 bsdiff，分为三个对应的解码步骤。</p>
+
+    <h3>完整处理流程</h3>
+    <div class="pipeline">
+      <div class="pipeline-step">
+        <div class="pipeline-num">1</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">读取补丁文件</div>
+          <div class="pipeline-desc">将加密补丁完全或流式加载，检查文件头部信息</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">2</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">AES-128-CTR 解密</div>
+          <div class="pipeline-desc">检测加密标志，若加密则使用密钥和 Nonce 解密压缩数据</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">3</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">LZMA 解压</div>
+          <div class="pipeline-desc">使用头部保存的 LZMA 属性，流式解压差分数据</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">4</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">二进制还原（BSPATCH）</div>
+          <div class="pipeline-desc">逐块读取旧文件，应用解压后的差分数据生成新文件</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">5</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">校验验证</div>
+          <div class="pipeline-desc">计算生成文件的 CRC，与头部数据对比验证完整性</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Bspatch Step 1: AES Decrypt ── -->
+  <section id="bspatch-step1">
+    <h2>步骤 1：AES-128-CTR 解密</h2>
+    <p>bspatch 首先检查补丁文件是否加密，若加密则使用相同的密钥和 Nonce 解密。
+      CTR 模式的特性使得解密过程与加密完全相同。</p>
+
+    <h3>解密检测机制</h3>
+    <p>程序通过文件名自动检测加密状态：</p>
+<pre><code>// bspatch/main.c - 加密检测
+is_encrypted = (strstr(argv[3], "_encrypt") != NULL);
+
+if (is_encrypted) {
+    printf("Detected encrypted patch file, decrypting with AES-128-CTR...\n");
+    // 执行解密流程
+}</code></pre>
+
+    <h3>解密过程详解</h3>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>读取 Nonce</strong> — 从文件头部读取前 16 字节（12 字节 Nonce + 4 字节初始计数器）</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>初始化上下文</strong> — 用固定密钥初始化 AES 上下文</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>逐块解密</strong> — 读取加密数据，用相同的 Nonce 和 CTR 模式解密</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>保存解密结果</strong> — 生成临时文件或内存缓冲保存解密后的压缩数据</div>
+      </div>
+    </div>
+
+    <h3>代码示例</h3>
+<pre><code>// bspatch/main.c - AES-128-CTR 解密
+const uint8_t key[16] = {
+    0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
+    0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c
+};
+
+if (is_encrypted) {
+    // 读取加密文件
+    uint8_t *encrypted_data = malloc(encrypted_file_size);
+    fread(encrypted_data, 1, encrypted_file_size, patch_file);
+    fclose(patch_file);
+
+    // 提取 Nonce 和计数器（前 16 字节）
+    uint8_t nonce_counter[16];
+    memcpy(nonce_counter, encrypted_data, 16);
+
+    // 初始化 AES 上下文
+    AES_ctx ctx;
+    AES_init_ctx(&ctx, key);
+
+    // 解密数据（从第 17 字节开始）
+    size_t decrypted_size = encrypted_file_size - 16;
+    uint8_t *decrypted_data = malloc(decrypted_size);
+    memcpy(decrypted_data, encrypted_data + 16, decrypted_size);
+
+    // CTR 模式解密（与加密相同操作）
+    AES_CTR_decrypt(&ctx, decrypted_data, decrypted_size, nonce_counter);
+
+    // 现在 decrypted_data 包含 LZMA 压缩的补丁数据
+}</code></pre>
+
+    <div class="notice ok">
+      CTR 模式的对称性：加密和解密使用相同的操作，只需保存和还原 Nonce 和初始计数器值。
+      这比 CBC、ECB 等模式更简洁，且支持流式处理。
+    </div>
+  </section>
+
+  <!-- ── Bspatch Step 2: LZMA Decompress ── -->
+  <section id="bspatch-step2">
+    <h2>步骤 2：LZMA 解压</h2>
+    <p>LZMA 解压是最复杂的步骤，特别在 MCU 环境中需要流式处理以节省内存。
+      程序使用从补丁头部提取的 LZMA 属性进行解压。</p>
+
+    <h3>解压配置</h3>
+    <p>从补丁头部提取解压所需信息：</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>信息</th><th>来源</th><th>用途</th></tr>
+        <tr><td>LZMA 属性</td><td>ph_lzma_props (5 字节)</td><td>恢复 lc/lp/pb 等参数</td></tr>
+        <tr><td>原始大小</td><td>ph_original_size (8 字节)</td><td>分配解压缓冲区，防止越界</td></tr>
+        <tr><td>压缩大小</td><td>ph_psize (4 字节)</td><td>读取压缩数据的范围</td></tr>
+      </table>
+    </div>
+
+    <h3>流式解压流程</h3>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>初始化解码器</strong> — 用 LZMA 属性初始化解压上下文和状态机</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>创建虚拟文件</strong> — 为了兼容 Windows，使用虚拟文件结构而非 fmemopen</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>分块读取</strong> — 每次读取固定大小（通常 1024 字节）的解压数据块</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>需要时解压</strong> — BSPATCH 应用阶段按需调用解压函数获取数据</div>
+      </div>
+    </div>
+
+    <h3>代码示例</h3>
+<pre><code>// bspatch/user/interface.c - LZMA 流式解压初始化
+vFile *vf = vfopen(patch_data, patch_size);
+if (!vf) return 1;
+
+// 准备 LZMA 头部（属性 + 原始大小）
+uint8_t header_with_props[LZMA_PROPS_SIZE + 8];
+memcpy(header_with_props, header.ph_lzma_props, LZMA_PROPS_SIZE);
+
+// 复制原始大小（8 字节，小端）
+for (int i = 0; i < 8; i++) {
+    header_with_props[LZMA_PROPS_SIZE + i] =
+        (header.ph_original_size >> (i * 8)) & 0xFF;
+}
+
+// 初始化解压器
+vFile *header_vf = vfopen(header_with_props, sizeof(header_with_props));
+int init_result = lzma_decompress_read(header_vf, NULL, 0);
+vfclose(header_vf);
+
+if (init_result < 0) {
+    fprintf(stderr, "Failed to initialize LZMA decompressor\n");
+    return 1;
+}
+
+// 后续按需调用 lzma_decompress_read() 获取解压数据</code></pre>
+
+    <h3>内存优化策略</h3>
+    <p>对于内存受限的 MCU 环境：</p>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>缓冲区大小</strong> — 通常设为 1KB-2KB（取决于 MCU RAM）</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>流式读取</strong> — 不加载整个压缩文件，只加载必要的数据块</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>直接写入 Flash</strong> — 解压后的数据直接写入 MCU Flash，无需二次缓存</div>
+      </div>
+    </div>
+
+    <div class="notice warn">
+      LZMA 解压耗时取决于数据大小和 dictSize，通常比加密耗时更长。
+      对于数 MB 文件，解压可能需要数秒到数十秒。
+    </div>
+  </section>
+
+  <!-- ── Bspatch Step 3: Apply Patch ── -->
+  <section id="bspatch-step3">
+    <h2>步骤 3：二进制还原（BSPATCH）</h2>
+    <p>BSPATCH 算法应用 BSDIFF 生成的补丁，结合旧文件数据和补丁中的差分、新增数据，
+      逐块生成新文件。这是一个计算密集但 I/O 高效的过程。</p>
+
+    <h3>还原原理</h3>
+    <p>BSPATCH 通过三类数据的组合重建新文件：</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>操作类型</th><th>输入</th><th>处理</th><th>输出</th></tr>
+        <tr><td>差分段</td><td>旧文件 + 差分值</td><td>逐字节相加</td><td>新文件的对应段</td></tr>
+        <tr><td>新增段</td><td>来自补丁的新数据</td><td>直接复制</td><td>新文件的新增部分</td></tr>
+        <tr><td>位置跳转</td><td>控制块中的偏移</td><td>调整旧文件指针</td><td>下一个匹配位置</td></tr>
+      </table>
+    </div>
+
+    <h3>逐块处理流程</h3>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>读取控制块</strong> — 从解压流中读取 24 字节（3 个 8 字节值）</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>处理差分段</strong> — 按控制块的第一个值，读取补丁数据，加上旧文件对应字节</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>处理新增段</strong> — 按控制块的第二个值，直接复制补丁中的新增数据</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>调整指针</strong> — 按控制块的第三个值调整旧文件读指针，重复直到新文件完成</div>
+      </div>
+    </div>
+
+    <h3>代码示例</h3>
+<pre><code>// bspatch/user/interface.c - 二进制还原核心逻辑
+int chunked_bspatch(uint8_t *old_data, int64_t old_size,
+                    uint8_t *new_data, int64_t new_size,
+                    uint32_t newfile_addr,
+                    struct bspatch_stream *stream) {
+    uint8_t buf[8];
+    int64_t oldpos = 0, newpos = 0;
+    int64_t ctrl[3];  // [0]=diff_len, [1]=extra_len, [2]=seek_offset
+
+    while (newpos < new_size) {
+        // 读取控制块（3 个 8 字节值）
+        for (i = 0; i <= 2; i++) {
+            if (stream->read(stream, buf, 8)) return -1;
+            ctrl[i] = offtin(buf);
+        }
+
+        // 处理差分段：新文件 += (旧文件 + 差分值)
+        for (int64_t i = 0; i < ctrl[0]; i++) {
+            if ((oldpos + i >= 0) && (oldpos + i < old_size)) {
+                new_buffer[i] = old_data[oldpos + i] +
+                               patch_buffer[i];  // 加上差分值
+            }
+        }
+        // 写入新文件
+        fwrite(new_buffer, 1, ctrl[0], newfile);
+
+        newpos += ctrl[0];
+        oldpos += ctrl[0];
+
+        // 处理新增段：直接复制新增数据
+        for (int64_t i = 0; i < ctrl[1]; i++) {
+            stream->read(stream, &new_buffer[i], 1);
+        }
+        fwrite(new_buffer, 1, ctrl[1], newfile);
+
+        newpos += ctrl[1];
+
+        // 调整旧文件指针
+        oldpos += ctrl[2];
+    }
+
+    return 0;
+}</code></pre>
+
+    <h3>性能考量</h3>
+    <p>在 MCU 环境中的优化：</p>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>缓冲处理</strong> — 缓存块大小 256-1024 字节，平衡 RAM 和性能</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>Flash 写入</strong> — 检查地址对齐，进行批量擦写以提高效率</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>串行处理</strong> — 避免大量内存分配，使用链式处理各阶段</div>
+      </div>
+    </div>
+
+    <div class="notice ok">
+      BSPATCH 应用的关键优势：
+      <br/>• 顺序处理 — 从前到后顺序应用补丁，支持流式处理
+      <br/>• 空间高效 — 只需保存一个控制块和缓冲区大小的内存
+      <br/>• 验证内置 — 通过多层 CRC 检查保证完整性
+    </div>
+  </section>
+
+  <!-- ── Bspatch Verify ── -->
+  <section id="bspatch-verify">
+    <h2>步骤 4：校验验证</h2>
+    <p>补丁应用完成后，通过 CRC32 校验验证新文件的完整性，确保还原过程无错误。</p>
+
+    <h3>三级校验机制</h3>
+    <div class="pipeline">
+      <div class="pipeline-step">
+        <div class="pipeline-num">1</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">头部完整性</div>
+          <div class="pipeline-desc">验证 ph_hcrc，检查补丁头部未损坏</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">2</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">旧文件验证</div>
+          <div class="pipeline-desc">计算旧文件 CRC，与 ph_ocrc 对比，确保补丁匹配</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">3</div>
+        <div class="pipeline-content">
+          <div class="pipeline-title">新文件验证</div>
+          <div class="pipeline-desc">计算生成文件 CRC，与 ph_ncrc 对比，确保还原正确</div>
+        </div>
+      </div>
+    </div>
+
+    <h3>代码示例</h3>
+<pre><code>// bspatch/main.c - 多层校验
+// 1. 验证头部 CRC
+uint32_t original_hcrc = header.ph_hcrc;
+header.ph_hcrc = 0;
+uint32_t calc_crc = crc32((const unsigned char *)&header,
+                          sizeof(patch_header_t));
+if (BigtoLittle32(original_hcrc) != calc_crc) {
+    fprintf(stderr, "Corrupt patch file (invalid header CRC)\n");
+    return 1;
+}
+header.ph_hcrc = original_hcrc;
+
+// 2. 验证旧文件 CRC
+uint8_t *old_data = read_entire_file(argv[1], old_size);
+calc_crc = crc32(old_data, old_size);
+if (BigtoLittle32(header.ph_ocrc) != calc_crc) {
+    fprintf(stderr, "Old file CRC mismatch\n");
+    return 1;
+}
+
+// 3. 应用补丁后，验证新文件 CRC
+bspatch_patch(header, old_data, old_size,
+              patch_data, patch_size, 0, new_data, new_size);
+
+calc_crc = crc32(new_data, new_size);
+if (BigtoLittle32(header.ph_ncrc) != calc_crc) {
+    fprintf(stderr, "New file CRC mismatch (patch process failed)\n");
+    return 1;
+}
+
+printf("Successfully applied patch: %s created\n", argv[2]);</code></pre>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- ════════════ 核心技术深入 ════════════ -->
+  <!-- ══════════════════════════════════════════════════════ -->
+
+  <section id="bsdiff-algo">
+    <h2>BSDIFF 算法详解</h2>
+    <p>BSDIFF 是 Colin Percival 在 2003 年提出的二进制差分算法，在业界广泛应用于版本控制、系统更新等领域。</p>
+
+    <h3>核心思想</h3>
+    <p>BSDIFF 的核心是利用后缀树/后缀数组加速匹配：</p>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>预处理</strong> — 构建旧文件的后缀数组结构，支持 O(log n) 子串查询</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>扫描</strong> — 从新文件起点扫描，在旧文件中二分查找最长匹配</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>编码</strong> — 记录匹配信息（长度、新增数据长度、位置跳转）</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><strong>输出</strong> — 写入控制块、差分数据、新增数据</div>
+      </div>
+    </div>
+
+    <h3>优势与限制</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>方面</th><th>优势</th><th>限制</th></tr>
+        <tr><td>补丁大小</td><td>极小，通常 1-5% 原文件</td><td>需要完整文件在内存中</td></tr>
+        <tr><td>性能</td><td>O(n log n) 复杂度，快速</td><td>无法处理超大文件</td></tr>
+        <tr><td>应用场景</td><td>固件、软件更新、版本控制</td><td>不适合数据库增量同步</td></tr>
+        <tr><td>兼容性</td><td>算法稳定成熟，广泛使用</td><td>不同版本可能不兼容</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section id="lzma-algo">
+    <h2>LZMA 压缩算法</h2>
+    <p>LZMA(Lempel-Ziv-Markov Chain)由 Igor Pavlov 提出，基于 LZSS 和算术编码，提供业界最高的压缩率。</p>
+
+    <h3>两阶段处理</h3>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>LZ77 编码</strong> — 寻找重复的字符串，用距离和长度替代</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>算术编码</strong> — 对 LZ77 输出进行逐比特编码，达到最优压缩</div>
+      </div>
+    </div>
+
+    <h3>MCU 优化参数建议</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>场景</th><th>dictSize</th><th>lc+lp</th><th>说明</th></tr>
+        <tr><td>极限 RAM</td><td>4KB</td><td>0</td><td>STM32F4，内存 1MB 以下</td></tr>
+        <tr><td>标准 MCU</td><td>16KB</td><td>2</td><td>STM32H7，内存 2MB+</td></tr>
+        <tr><td>充足内存</td><td>64KB</td><td>3</td><td>Linux/Windows 桌面版</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section id="aes-algo">
+    <h2>AES-128-CTR 加密</h2>
+    <p>AES(Advanced Encryption Standard)是美国联邦标准，CTR(Counter)模式将分组密码转换为流密码。</p>
+
+    <h3>安全性分析</h3>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><strong>密钥强度</strong> — 128 位密钥，2^128 搜索空间，现实中不可破解</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><strong>Nonce 作用</strong> — 12 字节随机 Nonce 确保相同明文产生不同密文</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><strong>CTR 模式</strong> — 抗性强，不存在 ECB 的相同明文块产生相同密文的弱点</div>
+      </div>
+    </div>
+
+    <h3>注意事项</h3>
+    <div class="notice warn">
+      <strong>关键警告：</strong>
+      <br/>• 永不重用 Nonce —— 相同 Nonce + 密钥会导致整个安全性崩溃
+      <br/>• 保护密钥 —— 密钥应存储在安全区域（MCU 的 OTP、Secure Enclave 等）
+      <br/>• 随机数源 —— 使用密码学安全的随机数生成器
+    </div>
+  </section>
+
+  <!-- ── Project Structure ── -->
+  <section id="structure">
+    <h2>项目文件结构</h2>
+    <p>项目采用模块化设计，清晰分离关注点，易于维护和移植。</p>
+
+    <h3>BSDIFF 目录结构</h3>
+<pre><code>bsdiff/
+├── main.c                    # 主程序入口（745 行）
+├── bsdiff/
+│   ├── bsdiff.c              # BSDIFF 算法实现
+│   ├── bsdiff.h              # 公开接口
+│   └── bsdiff_wrapper.c      # MCU 嵌入式包装
+├── lzma/                     # LZMA 压缩库（70+ 文件）
+│   ├── LzmaEnc.c/.h          # 编码器
+│   ├── LzmaDec.c/.h          # 解码器（用于嵌入）
+│   ├── CpuArch.c, Alloc.c    # 底层支持
+│   └── ...
+├── AES128_CTR/
+│   ├── aes_core.c            # AES 实现
+│   ├── tiny_AES_encrypt.h    # CTR 加密接口
+│   └── tiny_AES_decrypt.h    # CTR 解密接口
+├── file/
+│   ├── vFile.c/.h            # 虚拟文件操作
+│   └── ...
+├── lib/
+│   └── crc32.c/.h            # CRC32 校验
+├── user/
+│   ├── bs_type.h             # 类型定义和字节序转换
+│   └── bs_user_interface.h   # 用户接口
+└── winGUI/
+    ├── bsdiff_gui_modern.py  # PySide6 GUI
+    ├── dist/BSDiff_GUI.exe   # 编译后的可执行文件
+    └── requirements.txt      # Python 依赖
+
+CMakeLists.txt               # 构建配置</code></pre>
+
+    <h3>BSPATCH 目录结构</h3>
+<pre><code>bspatch/
+├── main.c                    # 主程序入口（364 行）
+├── bspatch/
+│   ├── bspatch.c             # BSPATCH 算法实现
+│   └── bspatch.h             # 公开接口
+├── lzma/                     # LZMA 最小解压库
+│   ├── LzmaDec.c/.h          # 解码器（生产版本）
+│   ├── lzma_decompress.c/.h  # 流式解压封装
+│   └── ...
+├── AES128_CTR/
+│   ├── aes_core.c            # AES 实现（共享）
+│   └── tiny_AES_decrypt.h    # 解密接口
+├── file/
+│   └── vFile.c/.h            # 虚拟文件
+├── lib/
+│   └── crc32.c/.h            # CRC32 校验
+├── user/
+│   ├── interface.c/.h        # 核心协调（367 行）
+│   ├── bs_type.h             # 类型定义
+│   ├── EraseAndWriteFlash_template.c  # MCU Flash 操作模板
+│   └── ...
+└── CMakeLists.txt            # 构建配置</code></pre>
+
+    <h3>共享组件</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>组件</th><th>位置</th><th>说明</th></tr>
+        <tr><td>AES Core</td><td>bsdiff/AES128_CTR/aes_core.c</td><td>加密/解密共享实现</td></tr>
+        <tr><td>CRC32</td><td>lib/crc32.c</td><td>校验算法（两边都用）</td></tr>
+        <tr><td>类型定义</td><td>user/bs_type.h</td><td>字节序转换和基本类型</td></tr>
+        <tr><td>虚拟文件</td><td>file/vFile.c</td><td>内存模拟文件操作</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Configuration ── -->
+  <section id="config">
+    <h2>配置与编译</h2>
+
+    <h3>命令行参数</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>程序</th><th>用法</th></tr>
+        <tr><td class="td-code">bsdiff</td><td>bsdiff oldfile newfile patchfile [options]</td></tr>
+        <tr><td class="td-code">bspatch</td><td>bspatch oldfile newfile patchfile</td></tr>
+      </table>
+    </div>
+
+    <h3>BSDIFF 选项示例</h3>
+<pre><code># 默认配置（推荐）
+bsdiff old.bin new.bin patch.bin
+
+# 自定义 LZMA 参数
+bsdiff old.bin new.bin patch.bin -lc 3 -dict 16 -fb 128
+
+# 禁用加密
+bsdiff old.bin new.bin patch.bin -aes 0
+
+# 快速算法（压缩率低）
+bsdiff old.bin new.bin patch.bin -a 0 -dict 4</code></pre>
+
+    <h3>编译步骤</h3>
+<pre><code># BSDIFF 编译
+cd bsdiff
+mkdir build && cd build
+cmake -G "MinGW Makefiles" ..
+cmake --build .
+# 输出：build/bin/bsdiff.exe
+
+# BSPATCH 编译
+cd ../bspatch
+mkdir build && cd build
+cmake -G "MinGW Makefiles" ..
+cmake --build .
+# 输出：build/bin/bspatch.exe</code></pre>
+
+    <h3>MCU 配置</h3>
+    <p>MCU 平台需要修改 mcu_config.h：</p>
+<pre><code>#define CONFIG_PLATFORM STM32F4  // 选择平台
+#define CONFIG_RTOS BARE_METAL    // 或 FREERTOS, RT-THREAD
+#define DCOMPRESS_BUFFER_SIZE 1024 // 解压缓冲大小
+#define CONFIG_AES_DECRYPT_ENABLE 1 // 启用 AES 解密</code></pre>
+  </section>
+
+</div>
+
+<footer>
+  BSDIFF + LZMA + AES128 固件差分压缩加密系统 &nbsp;·&nbsp;
+  完整的编码-解码方案 &nbsp;·&nbsp; 支持多个 MCU 平台 &nbsp;·&nbsp;
+  高效的补丁压缩和安全的加密传输
+</footer>
+</main>
+
+<script>
+  // ── Menu Toggle ──
+  const toggle = document.getElementById('menu-toggle');
+  toggle.addEventListener('click', () => {
+    document.body.classList.toggle('menu-open');
+  });
+
+  // ── Active link on scroll ──
+  const sections = document.querySelectorAll('section[id], h3[id]');
+  const links = document.querySelectorAll('.sidebar-link');
+
+  function updateActive() {
+    let current = '';
+    sections.forEach(sec => {
+      const top = sec.getBoundingClientRect().top;
+      if (top <= 80) current = sec.id;
+    });
+    links.forEach(a => {
+      const isActive = a.getAttribute('href') === '#' + current;
+      a.classList.toggle('active', isActive);
+      if (isActive) a.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+  }
+
+  document.getElementById('main').addEventListener('scroll', updateActive);
+  window.addEventListener('scroll', updateActive);
+
+  // ── Copy button for code blocks ──
+  document.querySelectorAll('pre').forEach(pre => {
+    const btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.title = '复制代码';
+    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    btn.addEventListener('click', () => {
+      const code = pre.querySelector('code') ? pre.querySelector('code').innerText : pre.innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        btn.classList.add('copied');
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+        }, 2000);
+      });
+    });
+    pre.appendChild(btn);
+  });
+
+  // ── Smooth scroll ──
+  links.forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (window.innerWidth < 700) document.body.classList.remove('menu-open');
+    });
+  });
+</script>
+</body>
+</html>

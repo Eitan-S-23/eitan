@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(gh repo view:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd enhanced visualizations to OTA documentation\n\n- System hardware architecture diagram showing MCU connections to Flash, EEPROM, external Flash, and BLE\n- CRC32 validation flowchart with visual success/failure branches\n- Partition switching state machine diagram with color-coded paths\n- Responsive CSS for mobile and tablet displays\n- Improved visual hierarchy with gradient backgrounds and color coding\n\nCo-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "WebSearch",
+      "Bash(git commit:*)",
+      "Bash(python3:*)",
+      "Bash(pip install:*)",
+      "Bash(python generate_pptx_simple.py:*)",
+      "Bash(python create_pptx.py:*)",
+      "Bash(/c/Users/SU/AppData/Local/Microsoft/WindowsApps/python3:*)",
+      "Bash(find:*)",
+      "Bash(echo ImageMagick not found:*)",
+      "Bash(cwebp:*)",
+      "Bash(echo Pillow not found:*)",
+      "Bash(echo \\(not set\\):*)",
+      "Bash(chmod +x:*)",
+      "WebFetch(domain:nicksergeant.com)",
+      "WebFetch(domain:smartscope.blog)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:en.bioerrorlog.work)",
+      "Bash(git push:*)"
+    ]
+  }
+}
